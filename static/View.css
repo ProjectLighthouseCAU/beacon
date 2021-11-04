@@ -1,0 +1,19 @@
+.view {
+    position: relative;
+    padding: 0;
+    margin:  0;
+}
+.view.fadeout {
+    opacity: 0;
+    transition: opacity 55s;
+}
+.view canvas {
+    margin: 0;
+    max-width: 100%;
+    max-height: 90vh;
+}
+.view canvas:not(:first-child) {
+    position: absolute;
+    top: 0;
+    left: 0;
+}

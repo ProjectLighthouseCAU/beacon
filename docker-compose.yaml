@@ -1,0 +1,28 @@
+version: '3'
+services:
+  lighthouse-server:
+    image: lighthouse-server:latest
+    ports:
+      - "3000:3000"
+    environment:
+      # WEBSOCKET
+      - WEBSOCKET_PORT=3000
+      - WEBSOCKET_ROUTE=/websocket
+      - WEBSOCKET_READ_BUFFER_SIZE=2048
+      - WEBSOCKET_WRITE_BUFFER_SIZE=2048
+      - WEBSOCKET_READ_LIMIT=2048
+      - WEBSOCKET_ENDPOINT_AUTHENTICATION=false
+
+      # TLS (Currently Websocket Only)
+      - TLS_CERT_PATH=
+      - TLS_PRIVATE_KEY_PATH=
+
+      # RESOURCE
+      - RESOURCE_PUT_CHANNEL_SIZE=1000
+      - RESOURCE_STREAM_CHANNEL_SIZE=1000
+      - RESOURCE_CONTROL_CHANNEL_SIZE=100
+    # volumes:
+    #   - lighthouse-server-data:/data
+
+# volumes:
+#   lighthouse-server-data:

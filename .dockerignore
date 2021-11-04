@@ -1,0 +1,6 @@
+.git
+*.md
+docker-compose.yaml
+dev/
+lighthouse-server
+Makefile
