@@ -14,7 +14,12 @@ type Auth interface {
 
 // Helper function for determining if an operation is read-only
 func isReadOperation(req *types.Request) bool {
-	return !(req.VERB == "PUT" || req.VERB == "LINK" || req.VERB == "UNLINK")
+	return map[string]bool{
+		"LIST":   true,
+		"GET":    true,
+		"STREAM": true,
+		"STOP":   true,
+	}[req.VERB]
 }
 
 // --- Combined Authorization Handlers ---
