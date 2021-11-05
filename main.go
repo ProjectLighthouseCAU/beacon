@@ -6,7 +6,6 @@ import (
 	"bufio"
 	"fmt"
 	"log"
-	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
@@ -19,6 +18,7 @@ import (
 	"lighthouse.uni-kiel.de/lighthouse-server/handler"
 	"lighthouse.uni-kiel.de/lighthouse-server/network"
 	"lighthouse.uni-kiel.de/lighthouse-server/network/websocket"
+	"lighthouse.uni-kiel.de/lighthouse-server/static"
 
 	"lighthouse.uni-kiel.de/lighthouse-server/config"
 )
@@ -54,24 +54,22 @@ func main() {
 	log.Printf("GOMAXPROCS: %d\n", runtime.GOMAXPROCS(0))
 
 	// DEPENDENCY INJECTION:
-	authAllowAll := &auth.AllowAll{}
+	// authAllowAll := &auth.AllowAll{}
 
-	// authCustom := &auth.AllowCustom{
-	// 	Users: map[string]string{
-	// 		"Testuser1": "API-TOK_TEST",
-	// 		"Testuser2": "API-TOK_TEST",
-	// 		"Admin":     "API-TOK_ADMIN",
-	// 	},
-	// 	Admins: map[string]struct{}{
-	// 		"Admin": struct{}{},
-	// 	},
-	// }
+	authCustom := &auth.AllowCustom{
+		Users: map[string]string{
+			"User": "Token",
+		},
+		Admins: map[string]struct{}{
+			// "Admin": struct{}{},
+		},
+	}
 	//   or
 	// auth := auth.New(strategy?)
 
 	directory := tree.NewTree()
 
-	handler := handler.New(directory, authAllowAll)
+	handler := handler.New(directory, authCustom)
 	// loggerHandler := handler.NewLogger()
 	handlers := []network.RequestHandler{handler}
 
@@ -79,9 +77,7 @@ func main() {
 	// tcpEndpoint := tcp.CreateEndpoint(tcpPort, handlers)
 	endpoints := []network.Endpoint{websocketEndpoint}
 
-	// serve static testing site (only works with websocket endpoint enabled)
-	log.Println("Serving static files")
-	http.Handle("/", http.FileServer(http.Dir("./static")))
+	static.StartFileserver()
 
 	log.Println("Server started")
 

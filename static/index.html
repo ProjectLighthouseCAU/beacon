@@ -30,36 +30,38 @@
         META: {},
         PAYL: null
       };
-
-      let socket = new WebSocket("ws://" + window.location.host + "/websocket");
-      // let socket = new WebSocket("wss://lighthouse.uni-kiel.de/websocket");
-      socket.binaryType = "arraybuffer";
-      socket.onmessage = m => {
-        let data = msgpack.decode(new Uint8Array(m.data));
-        let updateOutput = document.getElementById("toggleUpdateOutput")
-        if (updateOutput.checked) {
-          console.log("Response: ",data);
-          document.getElementById("responseOutput").innerText += "\n\n" + JSON.stringify(data, null, 2);
-          if (typeof data.PAYL === 'string' && typeof data.REID === 'string' && data.REID.includes('LIST')) {
-            document.getElementById("responseOutput").innerText += "\n\n" + data.PAYL;
+      let socket;
+      fetch("/websocket-port").then(response => response.json()).then(websocketPort => {
+        console.log("Websocket Port: ", websocketPort)
+        socket = new WebSocket("ws://" + window.location.hostname + ":" + parseInt(websocketPort) + "/websocket");
+        // let socket = new WebSocket("wss://lighthouse.uni-kiel.de/websocket");
+        socket.binaryType = "arraybuffer";
+        socket.onmessage = m => {
+          let data = msgpack.decode(new Uint8Array(m.data));
+          let updateOutput = document.getElementById("toggleUpdateOutput")
+          if (updateOutput.checked) {
+            console.log("Response: ",data);
+            document.getElementById("responseOutput").innerText += "\n\n" + JSON.stringify(data, null, 2);
+            if (typeof data.PAYL === 'string' && typeof data.REID === 'string' && data.REID.includes('LIST')) {
+              document.getElementById("responseOutput").innerText += "\n\n" + data.PAYL;
+            }
+            let outDiv = document.getElementById("responseScrollDiv");
+            outDiv.scrollTop = outDiv.scrollHeight;
           }
-          let outDiv = document.getElementById("responseScrollDiv");
-          outDiv.scrollTop = outDiv.scrollHeight;
-        }
-        console.log(data)
-        if (data.PAYL && data.PAYL instanceof Uint8Array && data.PAYL.length == 28*14*3) {
-          console.log("rendering...", data.PAYL)
-          grid.renderImg(data.PAYL)
-        }
-      };
-      socket.onopen = () => {
-        console.log("Websocket Opened");
-      };
-      socket.onclose = () => {
-        console.log("Websocket Closed")
-        alert("Websocket closed, please reload!")
-      };
-
+          console.log(data)
+          if (data.PAYL && data.PAYL instanceof Uint8Array && data.PAYL.length == 28*14*3) {
+            console.log("rendering...", data.PAYL)
+            grid.renderImg(data.PAYL)
+          }
+        };
+        socket.onopen = () => {
+          console.log("Websocket Opened");
+        };
+        socket.onclose = () => {
+          console.log("Websocket Closed")
+          alert("Websocket closed, please reload!")
+        };
+      })
       function readFile(f) {
         console.log("reading file: ", f)
         return new Promise((resolve, reject) => {
@@ -107,10 +109,14 @@
 
       let grid;
       window.onload = function() {
-        let users = [{USER: "Testuser1", TOKEN: "API-TOK_TEST"}, {USER: "Testuser2", TOKEN: "API-TOK_TEST"}, {USER: "Admin", TOKEN: "API-TOK_ADMIN"}];
-        document.getElementById("users").innerText = JSON.stringify(users, null, 2);
+        // let users = [{USER: "Testuser1", TOKEN: "API-TOK_TEST"}, {USER: "Testuser2", TOKEN: "API-TOK_TEST"}, {USER: "Admin", TOKEN: "API-TOK_ADMIN"}];
+        // document.getElementById("users").innerText = JSON.stringify(users, null, 2);
 
-        let endpoints = {Websocket: "ws://" + location.host + "/websocket", TCP: location.hostname + ":3001 (work in progress)", UNIX_DOMAIN: "not implemented"};
+        let endpoints = {
+          // Websocket: "ws://" + location.hostname + ":" + websocketPort + "/websocket"
+          // TCP: location.hostname + ":3001 (work in progress)",
+          // UNIX_DOMAIN: "not implemented"
+        };
         let endpointsHTML = document.getElementById("endpoints")
         endpointsHTML.innerText = JSON.stringify(endpoints, null, 2);
         // endpointsHTML.innerText += "\n\nNote: TCP endpoint expects length of encoded request\nas uint32 (big endian) before each request\n(responses follow the same pattern)";
@@ -176,11 +182,11 @@
       <button id="send" onclick=send()>Send</button>
     </div>
     <div style="flex: 40%">
-      Endpoints:
+      <!-- Endpoints: -->
       <pre id=endpoints></pre>
     </div>
     <div style="flex: 20%">
-      Users: 
+      <!-- Users:  -->
       <pre id="users"></pre>
     </div>
     <div style="flex: 0%">
