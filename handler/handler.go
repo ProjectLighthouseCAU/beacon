@@ -6,10 +6,15 @@ import (
 	"net/http"
 
 	"lighthouse.uni-kiel.de/lighthouse-server/auth"
+	"lighthouse.uni-kiel.de/lighthouse-server/config"
 	"lighthouse.uni-kiel.de/lighthouse-server/directory"
 	"lighthouse.uni-kiel.de/lighthouse-server/directory/tree"
 	"lighthouse.uni-kiel.de/lighthouse-server/network"
 	"lighthouse.uni-kiel.de/lighthouse-server/types"
+)
+
+var (
+	verbose = config.GetBool("VERBOSE_LOGGING", false)
 )
 
 type Handler struct {
@@ -55,8 +60,9 @@ func (handler *Handler) HandleRequest(client *types.Client, request *types.Reque
 			client.Send(response)
 		}
 	}()
-	// fmt.Printf("Request: %+v\n", request)
-
+	if verbose {
+		fmt.Printf("Request: %+v\n", request)
+	}
 	// Authentication and Authorization
 	if ok, code := handler.auth.IsAuthorized(client, request); !ok {
 		response := types.NewResponse().Reid(request.REID).Rnum(code).Build()
@@ -229,7 +235,8 @@ func (handler *Handler) HandleRequest(client *types.Client, request *types.Reque
 	}
 
 	response.Build() // checks response and fills missing fields if possible
-
-	// fmt.Printf("Response: %+v", response)
+	if verbose {
+		fmt.Printf("Response: %+v", response)
+	}
 	client.Send(response)
 }
