@@ -62,8 +62,7 @@ func CreateEndpoint(port int, route string, handlers []network.RequestHandler) *
 			},
 		},
 	}
-
-	http.HandleFunc(route, getWebsocketHandler(ep))
+	ep.httpServer.Handler = getWebsocketHandler(ep)
 	go func() {
 		if tlsEnabled {
 			if err := ep.httpServer.ListenAndServeTLS(certificatePath, privateKeyPath); err != http.ErrServerClosed {
@@ -94,7 +93,7 @@ func (ep *Endpoint) Close() {
 
 // The websocket handler upgrades HTTP to WebSocket connections, creates a new server.Client for that connection
 // and then reads and decodes received packets into a server.Request before forwarding to the server package.
-func getWebsocketHandler(ep *Endpoint) func(http.ResponseWriter, *http.Request) {
+func getWebsocketHandler(ep *Endpoint) http.HandlerFunc {
 	return func(responseWriter http.ResponseWriter, request *http.Request) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -131,7 +130,7 @@ func getWebsocketHandler(ep *Endpoint) func(http.ResponseWriter, *http.Request) 
 		client := types.NewClient(getSendHandle(conn), claims)
 
 		for {
-			messageType, payload, err := conn.ReadMessage()
+			/*messageType*/ _, payload, err := conn.ReadMessage()
 			if err != nil {
 				// if strings.Contains(err.Error(), "normal") {
 				// 	return
@@ -143,11 +142,12 @@ func getWebsocketHandler(ep *Endpoint) func(http.ResponseWriter, *http.Request) 
 				conn.Close()
 				return
 			}
-			if messageType != websocket.BinaryMessage {
-				log.Println("Received non binary message")
-				conn.WriteMessage(websocket.TextMessage, []byte("Bad Request - accepting only binary data encoded with MsgPack in the Lighthouse-Protocol"))
-				continue
-			}
+			// TODO: uncomment this when all clients are capable of binary messages
+			// if messageType != websocket.BinaryMessage {
+			// 	log.Println("Received non binary message")
+			// 	conn.WriteMessage(websocket.TextMessage, []byte("Bad Request - accepting only binary data encoded with MsgPack in the Lighthouse-Protocol"))
+			// 	continue
+			// }
 
 			request := types.Request{}
 			_, err = request.UnmarshalMsg(payload)
