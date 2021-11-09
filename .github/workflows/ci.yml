@@ -21,7 +21,7 @@ jobs:
           ${{ runner.os }}-go-
     - name: Get tooling
       run: |
-        go get github.com/golang/lint/golint
+        go get golang.org/x/lint
         go get honnef.co/go/tools/cmd/staticcheck
     - name: build
       run: go build -v -tags=gofuzz ./...
