@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"lighthouse.uni-kiel.de/lighthouse-server/auth"
+	"lighthouse.uni-kiel.de/lighthouse-server/auth/jwt"
 	"lighthouse.uni-kiel.de/lighthouse-server/config"
 	"lighthouse.uni-kiel.de/lighthouse-server/network"
 	"lighthouse.uni-kiel.de/lighthouse-server/types"
@@ -111,10 +111,10 @@ func getWebsocketHandler(ep *Endpoint) http.HandlerFunc {
 				responseWriter.WriteHeader(401)
 				return
 			}
-			jwt := strings.Split(authHeader, "Bearer ")[1]
+			jwtStr := strings.Split(authHeader, "Bearer ")[1]
 			var err error
-			claims, err = auth.ValidateJWT(jwt)
-			if strings.TrimSpace(jwt) == "" || err != nil {
+			claims, err = jwt.ValidateJWT(jwtStr)
+			if err != nil {
 				responseWriter.WriteHeader(401)
 				return
 			}

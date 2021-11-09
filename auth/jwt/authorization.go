@@ -1,15 +1,16 @@
 // WORK IN PROGRESS
-package auth
+package jwt
 
 import (
 	"net/http"
 
+	"lighthouse.uni-kiel.de/lighthouse-server/auth"
 	"lighthouse.uni-kiel.de/lighthouse-server/types"
 )
 
 type JWTAuth struct{}
 
-var _ Auth = (*JWTAuth)(nil)
+var _ auth.Auth = (*JWTAuth)(nil)
 
 func (a *JWTAuth) IsAuthorized(c *types.Client, r *types.Request) (bool, int) {
 	if c.Claims == nil {

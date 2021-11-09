@@ -13,7 +13,7 @@ import (
 	"strings"
 	"syscall"
 
-	"lighthouse.uni-kiel.de/lighthouse-server/auth"
+	"lighthouse.uni-kiel.de/lighthouse-server/auth/legacy"
 	"lighthouse.uni-kiel.de/lighthouse-server/directory/tree"
 	"lighthouse.uni-kiel.de/lighthouse-server/handler"
 	"lighthouse.uni-kiel.de/lighthouse-server/network"
@@ -54,22 +54,13 @@ func main() {
 	log.Printf("GOMAXPROCS: %d\n", runtime.GOMAXPROCS(0))
 
 	// DEPENDENCY INJECTION:
-	// authAllowAll := &auth.AllowAll{}
-
-	authCustom := &auth.AllowCustom{
-		Users: map[string]string{
-			"User": "Token",
-		},
-		Admins: map[string]struct{}{
-			// "Admin": struct{}{},
-		},
-	}
-	//   or
-	// auth := auth.New(strategy?)
+	// auth := &auth.AllowAll{}
+	// auth := &auth.AllowNone{}
+	auth := legacy.New()
 
 	directory := tree.NewTree()
 
-	handler := handler.New(directory, authCustom)
+	handler := handler.New(directory, auth)
 	// loggerHandler := handler.NewLogger()
 	handlers := []network.RequestHandler{handler}
 

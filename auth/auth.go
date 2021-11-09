@@ -13,7 +13,7 @@ type Auth interface {
 }
 
 // Helper function for determining if an operation is read-only
-func isReadOperation(req *types.Request) bool {
+func IsReadOperation(req *types.Request) bool {
 	return map[string]bool{
 		"LIST":   true,
 		"GET":    true,

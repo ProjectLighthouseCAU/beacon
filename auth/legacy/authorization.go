@@ -1,19 +1,20 @@
 // TEMPORARY SOLUTION
-package auth
+package legacy
 
 import (
 	"net/http"
 
+	"lighthouse.uni-kiel.de/lighthouse-server/auth"
 	"lighthouse.uni-kiel.de/lighthouse-server/types"
 )
 
 // AllowCustom is a custom implementation for authorization
 type AllowCustom struct {
-	Users  map[string]string   // username -> token
-	Admins map[string]struct{} // usernames
+	Users  map[string]string // username -> token
+	Admins map[string]bool   // usernames -> is admin flag
 }
 
-var _ Auth = (*AllowCustom)(nil)
+var _ auth.Auth = (*AllowCustom)(nil)
 
 // IsAuthorized determines whether a request is authorized
 func (a *AllowCustom) IsAuthorized(c *types.Client, req *types.Request) (bool, int) {
@@ -41,8 +42,8 @@ func (a *AllowCustom) IsAuthorized(c *types.Client, req *types.Request) (bool, i
 		return false, http.StatusUnauthorized
 	}
 
-	_, ok = a.Admins[username]
-	if ok {
+	isAdmin := a.Admins[username]
+	if isAdmin {
 		return true, http.StatusOK
 	}
 
@@ -50,7 +51,7 @@ func (a *AllowCustom) IsAuthorized(c *types.Client, req *types.Request) (bool, i
 		if req.PATH[1] == username {
 			return true, http.StatusOK
 		}
-		if isReadOperation(req) {
+		if auth.IsReadOperation(req) {
 			return true, http.StatusOK
 		}
 	}
