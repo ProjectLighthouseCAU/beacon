@@ -31,10 +31,13 @@
         PAYL: null
       };
       let socket;
-      fetch("/websocket-port").then(response => response.json()).then(websocketPort => {
-        console.log("Websocket Port: ", websocketPort)
-        socket = new WebSocket("ws://" + window.location.hostname + ":" + parseInt(websocketPort) + "/websocket");
-        // let socket = new WebSocket("wss://lighthouse.uni-kiel.de/websocket");
+      function setWebsocketURL() {
+        try {
+        let websocketURL = document.getElementById('websocket-url').value;
+        socket = new WebSocket(websocketURL);
+        } catch {
+          alert('Invalid Websocket URL');
+        }
         socket.binaryType = "arraybuffer";
         socket.onmessage = m => {
           let data = msgpack.decode(new Uint8Array(m.data));
@@ -50,7 +53,6 @@
           }
           console.log(data)
           if (data.PAYL && data.PAYL instanceof Uint8Array && data.PAYL.length == 28*14*3) {
-            console.log("rendering...", data.PAYL)
             grid.renderImg(data.PAYL)
           }
         };
@@ -61,7 +63,7 @@
           console.log("Websocket Closed")
           alert("Websocket closed, please reload!")
         };
-      })
+      }
       function readFile(f) {
         console.log("reading file: ", f)
         return new Promise((resolve, reject) => {
@@ -120,7 +122,7 @@
         // let endpointsHTML = document.getElementById("endpoints")
         // endpointsHTML.innerText = JSON.stringify(endpoints, null, 2);
         // endpointsHTML.innerText += "\n\nNote: TCP endpoint expects length of encoded request\nas uint32 (big endian) before each request\n(responses follow the same pattern)";
-
+        setWebsocketURL();
         let fileSelector = document.getElementById("payload-file");
         fileSelector.addEventListener('change', (event) => {
           selectedFile = event.target.files[0];
@@ -145,6 +147,12 @@
   <br>
   <div style="display: flex">
     <div style="flex: 100%">
+      <input id="websocket-url" type=text value="wss://lighthouse.uni-kiel.de/websocket-staging">
+      <span>Websocket URL</span>
+      <button onclick=setWebsocketURL()>Change</button>
+      
+      <br>
+
       <input id="user" type="text" value="Testuser1">
       <span>User</span>
       
