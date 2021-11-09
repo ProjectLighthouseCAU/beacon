@@ -51,6 +51,6 @@ jobs:
       with:
         context: .
         push: true
-        tags: projectlighthousecau/beacon:latest
-        cache-from: type=registry,ref=projectlighthousecau/beacon:latest
+        tags: ghcr.io/projectlighthousecau/beacon:latest
+        cache-from: type=registry,ref=ghcr.io/projectlighthousecau/beacon:latest
         cache-to: type=inline
