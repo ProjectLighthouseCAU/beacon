@@ -91,8 +91,8 @@ func (ep *Endpoint) Close() {
 	log.Println("Websocket Endpoint closed")
 }
 
-// The websocket handler upgrades HTTP to WebSocket connections, creates a new server.Client for that connection
-// and then reads and decodes received packets into a server.Request before forwarding to the server package.
+// The websocket handler upgrades HTTP to WebSocket connections, creates a new Client for that connection
+// and then reads and decodes received packets into a Request before forwarding to the handler package.
 func getWebsocketHandler(ep *Endpoint) http.HandlerFunc {
 	return func(responseWriter http.ResponseWriter, request *http.Request) {
 		defer func() {
@@ -130,7 +130,7 @@ func getWebsocketHandler(ep *Endpoint) http.HandlerFunc {
 		client := types.NewClient(getSendHandle(conn), claims)
 
 		for {
-			/*messageType*/ _, payload, err := conn.ReadMessage()
+			messageType, payload, err := conn.ReadMessage()
 			if err != nil {
 				// if strings.Contains(err.Error(), "normal") {
 				// 	return
@@ -142,16 +142,12 @@ func getWebsocketHandler(ep *Endpoint) http.HandlerFunc {
 				conn.Close()
 				return
 			}
-			// TODO: uncomment this when all clients are capable of binary messages
-			// if messageType != websocket.BinaryMessage {
-			// 	log.Println("Received non binary message")
-			// 	conn.WriteMessage(websocket.TextMessage, []byte("Bad Request - accepting only binary data encoded with MsgPack in the Lighthouse-Protocol"))
-			// 	continue
-			// }
-
+			var response *types.Response
+			if messageType != websocket.BinaryMessage {
+				response = types.NewResponse().Warning("Non binary-type message received, use websocket binary-type instead")
+			}
 			request := types.Request{}
 			_, err = request.UnmarshalMsg(payload)
-
 			if err != nil {
 				log.Println(err)
 				response := types.NewResponse().Reid(request.REID).Rnum(http.StatusBadRequest).Warning("Could not deserialize request. Please make sure that you are using the Lighthouse-Protocol correctly").Build()
@@ -164,7 +160,7 @@ func getWebsocketHandler(ep *Endpoint) http.HandlerFunc {
 				continue
 			}
 			for _, h := range ep.Handlers {
-				h.HandleRequest(client, &request)
+				h.HandleRequest(client, &request, response)
 			}
 		}
 	}
