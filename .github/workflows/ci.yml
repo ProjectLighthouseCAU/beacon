@@ -51,6 +51,6 @@ jobs:
       with:
         context: .
         push: true
-        tags: ${{ github.repository }}:latest
-        cache-from: type=registry,ref=${{ github.repository }}:latest
+        tags: project-lighthouse/beacon:latest
+        cache-from: type=registry,ref=project-lighthouse/beacon:latest
         cache-to: type=inline
