@@ -1,5 +1,5 @@
 # The Lighthouse Server (Beacon)
-#### TODO: find cooler less generic name, ideas: beacon, bonfire, lantern
+### **B**asis for **E**very **A**pplication with **C**onnections **O**ver **N**etworks
 
 ## About
 At Project Lighthouse we wanted to provide our users (mostly students) with a platform for building animations and games to be played on our big screen, the "Lighthouse" - an LED installation inside a 14 story university building.  
