@@ -3,11 +3,9 @@ package types
 // The Client type stores a Send function via which the server can send a Response to the client
 // as well as a Streams map that stores the active stream channels for each resource path.
 type Client struct {
-	Send func(*Response) error
-	// Streams      map[string]resource.Channel // TODO: does this need to be sync.Map as well?
+	Send    func(*Response) error
 	streams []stream
-	// Disconnected chan struct{} // closed when client disconnects
-	Claims map[string]interface{}
+	Claims  map[string]interface{}
 }
 
 type stream struct {
