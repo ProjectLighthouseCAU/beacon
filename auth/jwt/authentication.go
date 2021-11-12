@@ -3,6 +3,7 @@ package jwt
 import (
 	"crypto/rand"
 	"fmt"
+	"log"
 
 	"github.com/golang-jwt/jwt/v4"
 	"lighthouse.uni-kiel.de/lighthouse-server/config"
@@ -36,7 +37,7 @@ func ValidateJWT(tokenStr string) (map[string]interface{}, error) {
 func NewRandomKey() string {
 	key := make([]byte, 32)
 	if _, err := rand.Read(key); err != nil {
-		panic(err)
+		log.Println(err)
 	}
 	return string(key)
 }

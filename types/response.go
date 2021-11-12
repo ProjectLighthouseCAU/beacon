@@ -55,10 +55,12 @@ func (r *Response) Warning(warning string) *Response {
 }
 func (r *Response) Build() *Response {
 	if r.REID == nil {
-		log.Panicln("REID must be set")
+		log.Println("REID must be set")
+		r.REID = 0
 	}
 	if http.StatusText(r.RNUM) == "" {
-		log.Panicln("RNUM must be set and valid HTTP status code")
+		log.Println("RNUM must be set and valid HTTP status code")
+		r.RNUM = http.StatusTeapot
 	}
 	if r.RESPONSE == "" {
 		r.RESPONSE = http.StatusText(r.RNUM)
