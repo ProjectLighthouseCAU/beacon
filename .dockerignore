@@ -1,6 +1,7 @@
 .git
+.gitignore
+.github
 *.md
 docker-compose.yaml
-dev/
-lighthouse-server
+beacon
 Makefile
