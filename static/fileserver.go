@@ -23,5 +23,7 @@ func StartFileserver() {
 		Addr:    ":" + fmt.Sprint(webinterfacePort),
 		Handler: mux,
 	}
-	go log.Fatal(serv.ListenAndServe())
+	go func() {
+		log.Fatal(serv.ListenAndServe())
+	}()
 }
