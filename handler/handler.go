@@ -5,13 +5,13 @@ import (
 	"log"
 	"net/http"
 
-	"lighthouse.uni-kiel.de/lighthouse-server/auth"
-	"lighthouse.uni-kiel.de/lighthouse-server/config"
-	"lighthouse.uni-kiel.de/lighthouse-server/directory"
-	"lighthouse.uni-kiel.de/lighthouse-server/directory/tree"
-	"lighthouse.uni-kiel.de/lighthouse-server/network"
-	"lighthouse.uni-kiel.de/lighthouse-server/resource"
-	"lighthouse.uni-kiel.de/lighthouse-server/types"
+	"github.com/ProjectLighthouseCAU/beacon/auth"
+	"github.com/ProjectLighthouseCAU/beacon/config"
+	"github.com/ProjectLighthouseCAU/beacon/directory"
+	"github.com/ProjectLighthouseCAU/beacon/directory/tree"
+	"github.com/ProjectLighthouseCAU/beacon/network"
+	"github.com/ProjectLighthouseCAU/beacon/resource"
+	"github.com/ProjectLighthouseCAU/beacon/types"
 )
 
 var (

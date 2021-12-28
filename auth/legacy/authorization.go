@@ -4,8 +4,8 @@ package legacy
 import (
 	"net/http"
 
-	"lighthouse.uni-kiel.de/lighthouse-server/auth"
-	"lighthouse.uni-kiel.de/lighthouse-server/types"
+	"github.com/ProjectLighthouseCAU/beacon/auth"
+	"github.com/ProjectLighthouseCAU/beacon/types"
 )
 
 // AllowCustom is a custom implementation for authorization

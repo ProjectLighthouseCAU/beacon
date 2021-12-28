@@ -1,7 +1,7 @@
 package directory
 
 import (
-	"lighthouse.uni-kiel.de/lighthouse-server/resource"
+	"github.com/ProjectLighthouseCAU/beacon/resource"
 )
 
 // Directory defines the directory tree for bookkeeping of the resources.

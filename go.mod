@@ -1,4 +1,4 @@
-module lighthouse.uni-kiel.de/lighthouse-server
+module github.com/ProjectLighthouseCAU/beacon
 
 go 1.17
 

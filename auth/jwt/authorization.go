@@ -4,8 +4,8 @@ package jwt
 import (
 	"net/http"
 
-	"lighthouse.uni-kiel.de/lighthouse-server/auth"
-	"lighthouse.uni-kiel.de/lighthouse-server/types"
+	"github.com/ProjectLighthouseCAU/beacon/auth"
+	"github.com/ProjectLighthouseCAU/beacon/types"
 )
 
 type JWTAuth struct{}

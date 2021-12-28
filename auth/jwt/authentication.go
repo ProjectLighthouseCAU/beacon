@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/ProjectLighthouseCAU/beacon/config"
 	"github.com/golang-jwt/jwt/v4"
-	"lighthouse.uni-kiel.de/lighthouse-server/config"
 )
 
 var (

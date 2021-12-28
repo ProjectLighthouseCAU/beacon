@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"lighthouse.uni-kiel.de/lighthouse-server/config"
-	"lighthouse.uni-kiel.de/lighthouse-server/resource"
+	"github.com/ProjectLighthouseCAU/beacon/config"
+	"github.com/ProjectLighthouseCAU/beacon/resource"
 )
 
 type controlMsgType uint16

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"lighthouse.uni-kiel.de/lighthouse-server/config"
+	"github.com/ProjectLighthouseCAU/beacon/config"
 )
 
 var (

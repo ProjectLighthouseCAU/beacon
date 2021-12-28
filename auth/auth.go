@@ -4,7 +4,7 @@ package auth
 import (
 	"net/http"
 
-	"lighthouse.uni-kiel.de/lighthouse-server/types"
+	"github.com/ProjectLighthouseCAU/beacon/types"
 )
 
 // Auth is the basic interface that an auth implementation must provide

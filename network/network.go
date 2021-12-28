@@ -1,7 +1,7 @@
 package network
 
 import (
-	"lighthouse.uni-kiel.de/lighthouse-server/types"
+	"github.com/ProjectLighthouseCAU/beacon/types"
 )
 
 type EndpointType uint16 // Enum

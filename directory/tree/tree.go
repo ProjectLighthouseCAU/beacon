@@ -5,9 +5,9 @@ import (
 	"strings"
 	"sync"
 
-	directoryPkg "lighthouse.uni-kiel.de/lighthouse-server/directory"
-	"lighthouse.uni-kiel.de/lighthouse-server/resource"
-	resourceImpl "lighthouse.uni-kiel.de/lighthouse-server/resource/broker"
+	directoryPkg "github.com/ProjectLighthouseCAU/beacon/directory"
+	"github.com/ProjectLighthouseCAU/beacon/resource"
+	resourceImpl "github.com/ProjectLighthouseCAU/beacon/resource/broker"
 )
 
 // ### Directory Type ###

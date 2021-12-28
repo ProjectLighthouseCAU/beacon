@@ -13,14 +13,14 @@ import (
 	"strings"
 	"syscall"
 
-	"lighthouse.uni-kiel.de/lighthouse-server/auth/legacy"
-	"lighthouse.uni-kiel.de/lighthouse-server/directory/tree"
-	"lighthouse.uni-kiel.de/lighthouse-server/handler"
-	"lighthouse.uni-kiel.de/lighthouse-server/network"
-	"lighthouse.uni-kiel.de/lighthouse-server/network/websocket"
-	"lighthouse.uni-kiel.de/lighthouse-server/static"
+	"github.com/ProjectLighthouseCAU/beacon/auth/legacy"
+	"github.com/ProjectLighthouseCAU/beacon/directory/tree"
+	"github.com/ProjectLighthouseCAU/beacon/handler"
+	"github.com/ProjectLighthouseCAU/beacon/network"
+	"github.com/ProjectLighthouseCAU/beacon/network/websocket"
+	"github.com/ProjectLighthouseCAU/beacon/static"
 
-	"lighthouse.uni-kiel.de/lighthouse-server/config"
+	"github.com/ProjectLighthouseCAU/beacon/config"
 )
 
 var (

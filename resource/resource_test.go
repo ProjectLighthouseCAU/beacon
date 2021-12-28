@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	resource "lighthouse.uni-kiel.de/lighthouse-server/resource/broker" // <- change resource implementation here
+	resource "github.com/ProjectLighthouseCAU/beacon/resource/broker" // <- change resource implementation here
 )
 
 const maxLatency time.Duration = 1 * time.Millisecond

@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"lighthouse.uni-kiel.de/lighthouse-server/auth/jwt"
-	"lighthouse.uni-kiel.de/lighthouse-server/config"
-	"lighthouse.uni-kiel.de/lighthouse-server/network"
-	"lighthouse.uni-kiel.de/lighthouse-server/types"
+	"github.com/ProjectLighthouseCAU/beacon/auth/jwt"
+	"github.com/ProjectLighthouseCAU/beacon/config"
+	"github.com/ProjectLighthouseCAU/beacon/network"
+	"github.com/ProjectLighthouseCAU/beacon/types"
 
 	"github.com/gorilla/websocket"
 )
