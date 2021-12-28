@@ -10,6 +10,7 @@ import (
 	"lighthouse.uni-kiel.de/lighthouse-server/directory"
 	"lighthouse.uni-kiel.de/lighthouse-server/directory/tree"
 	"lighthouse.uni-kiel.de/lighthouse-server/network"
+	"lighthouse.uni-kiel.de/lighthouse-server/resource"
 	"lighthouse.uni-kiel.de/lighthouse-server/types"
 )
 
@@ -39,7 +40,9 @@ func New(dir directory.Directory, a auth.Auth) *Handler {
 }
 
 func (handler *Handler) Close() {
-	// TODO: foreach resource in directory: close resource
+	handler.directory.ForEach(func(res resource.Resource) {
+		res.Close()
+	})
 }
 
 func (handler *Handler) Disconnect(client *types.Client) {
@@ -119,12 +122,16 @@ func (handler *Handler) HandleRequest(client *types.Client, request *types.Reque
 		return
 
 	case "LIST":
-		// TODO: return nested maps instead of string representation
-		// or both by using META?
-		// also don't return the whole tree but rather the subtree from the request path
-		str := handler.directory.String(request.PATH)
+		// TODO: return also string representation of the directory when request contains a META tag
+		lst, err := handler.directory.List(request.PATH)
+		if err != nil {
+			response.Warning(err.Error()).Rnum(http.StatusNotFound).Build()
+			client.Send(response)
+			return
+		}
 		response.Warning("This request method is work in progress and might change")
-		response.Rnum(http.StatusOK).Payload(str).Build()
+		response.Rnum(http.StatusOK).Payload(lst).Build()
+		// fmt.Printf("Response: %+v\n", response)
 		client.Send(response)
 		return
 	}

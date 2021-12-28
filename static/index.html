@@ -79,7 +79,7 @@
       let reid = 0;
       async function send() {
         message.PATH = document.getElementById("resource").value.split("/");
-
+        if (message.PATH.length == 1 && message.PATH[0] === "") message.PATH = []; // empty array to list root
         if (document.getElementById("payload-switch-text").checked) {
           message.PAYL = document.getElementById("payload-text").value
         }

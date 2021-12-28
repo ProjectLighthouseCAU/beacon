@@ -82,19 +82,28 @@ func main() {
 	go func() {
 	Loop:
 		for {
+			fmt.Print("[list <path/to/directory>, stop]> ")
 			s, err := reader.ReadString('\n')
 			s = strings.TrimSuffix(s, "\n")
 			if err != nil {
 				fmt.Println(err)
 				break
 			}
-			fmt.Println(s)
-			switch s {
+			words := strings.Split(s, " ")
+			switch words[0] {
 			case "stop":
 				close(stop)
 				break Loop
 			case "list":
-				fmt.Println(directory.String([]string{}))
+				path := []string{}
+				if len(words) > 1 {
+					path = strings.Split(words[1], "/")
+				}
+				s, err := directory.String(path)
+				if err != nil {
+					fmt.Println(err.Error())
+				}
+				fmt.Print(s)
 			}
 		}
 	}()
