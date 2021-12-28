@@ -99,8 +99,22 @@ func (d *directory) CreateResource(path []string) error {
 	return nil
 }
 
+// CreateDirectory creates a directory given a path while creating missing directories
+func (d *directory) CreateDirectory(path []string) error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	if len(path) == 0 {
+		return errors.New("cannot create root directory")
+	}
+	_, err := d.getDirectory(path, true) // create missing directories in path
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // DeleteResource deletes a resource or a directory given a path (it also closes deleted resources)
-func (d *directory) DeleteResource(path []string) error {
+func (d *directory) Delete(path []string) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	if len(path) == 0 {
@@ -115,7 +129,10 @@ func (d *directory) DeleteResource(path []string) error {
 		return errors.New(path[len(path)-1] + " not found in " + strings.Join(path, "/"))
 	}
 	// close all contained resources and delete the entry
-	forEach(t, func(r resource.Resource) { r.Close() })
+	forEach(t, func(r resource.Resource) (bool, error) {
+		r.Close()
+		return true, nil
+	})
 	delete(n.entries, path[len(path)-1])
 	return nil
 }
@@ -143,7 +160,7 @@ func (d *directory) GetResource(path []string) (resource.Resource, error) {
 }
 
 // String outputs the directory tree in a nice format starting from path (path=[] for full tree)
-func (d *directory) String(path []string) (string, error) { // TODO: list tree starting from path
+func (d *directory) String(path []string) (string, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 	// result := "root\n"
@@ -179,11 +196,9 @@ func (n *node) string(prefixAtLayer []bool) string {
 		} else {
 			res += "├── "
 		}
-		// res += k + "\n"
 		switch x := v.(type) {
 		case *leaf:
 			res += k + "[r]\n"
-			// nothing to do
 		case *node:
 			res += k + "[d]\n"
 			if idx == lastIdx {
@@ -197,28 +212,36 @@ func (n *node) string(prefixAtLayer []bool) string {
 	return res
 }
 
-func (d *directory) ForEach(f func(resource.Resource)) {
+func (d *directory) ForEach(f func(resource.Resource) (bool, error)) error {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	forEach(d.root, f)
+	return forEach(d.root, f)
 }
 
-func forEach(t tree, f func(resource.Resource)) {
+func forEach(t tree, f func(resource.Resource) (bool, error)) (err error) {
 	switch x := t.(type) {
 	case *node:
 		for _, subt := range x.entries {
-			forEach(subt, f)
+			err = forEach(subt, f)
+			if err != nil {
+				return
+			}
 		}
 	case *leaf:
-		f(x.resource)
+		var cont bool
+		cont, err = f(x.resource)
+		if err != nil || !cont {
+			return
+		}
 	}
+	return
 }
 
 func (d *directory) List(path []string) (map[string]interface{}, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	n, err := d.getDirectory(path, false)
 
+	n, err := d.getDirectory(path, false)
 	if err != nil {
 		return nil, err
 	}
@@ -227,13 +250,11 @@ func (d *directory) List(path []string) (map[string]interface{}, error) {
 }
 
 func list(n *node) map[string]interface{} {
-
 	result := make(map[string]interface{})
-
 	for k, v := range n.entries {
 		switch x := v.(type) {
 		case *leaf:
-			result[k] = make(map[string]interface{}) // empty map to indicate a resource
+			result[k] = nil // nil to indicate a resource (empty map is not distinguishable from empty directory)
 		case *node:
 			result[k] = list(x) // recursive map to indicate a directory
 		}

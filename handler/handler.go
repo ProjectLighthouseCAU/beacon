@@ -40,8 +40,9 @@ func New(dir directory.Directory, a auth.Auth) *Handler {
 }
 
 func (handler *Handler) Close() {
-	handler.directory.ForEach(func(res resource.Resource) {
+	handler.directory.ForEach(func(res resource.Resource) (bool, error) {
 		res.Close()
+		return true, nil
 	})
 }
 
@@ -109,9 +110,15 @@ func (handler *Handler) HandleRequest(client *types.Client, request *types.Reque
 			client.Send(response)
 			return
 		}
-
+	case "MKDIR":
+		err := handler.directory.CreateDirectory(request.PATH)
+		if err != nil {
+			response.Warning(err.Error()).Rnum(http.StatusBadRequest).Build()
+			client.Send(response)
+			return
+		}
 	case "DELETE":
-		err := handler.directory.DeleteResource(request.PATH)
+		err := handler.directory.Delete(request.PATH)
 		if err != nil {
 			response.Warning(err.Error()).Rnum(http.StatusBadRequest).Build()
 			client.Send(response)
@@ -129,9 +136,7 @@ func (handler *Handler) HandleRequest(client *types.Client, request *types.Reque
 			client.Send(response)
 			return
 		}
-		response.Warning("This request method is work in progress and might change")
 		response.Rnum(http.StatusOK).Payload(lst).Build()
-		// fmt.Printf("Response: %+v\n", response)
 		client.Send(response)
 		return
 	}
