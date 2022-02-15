@@ -85,7 +85,9 @@ func (handler *Handler) HandleRequest(client *types.Client, request *types.Reque
 	case "POST": // POST = CREATE + PUT
 		err := handler.directory.CreateResource(request.PATH)
 		if err != nil { // creation failed (already exists or other error)
-			response.Warning(err.Error())
+			response.Warning(err.Error()).Rnum(http.StatusOK)
+		} else {
+			response.Rnum(http.StatusCreated)
 		}
 		resource, err := handler.directory.GetResource(request.PATH)
 		if err != nil { // other error during creation
@@ -99,7 +101,7 @@ func (handler *Handler) HandleRequest(client *types.Client, request *types.Reque
 			client.Send(response)
 			return
 		}
-		response.Rnum(http.StatusCreated).Build()
+		response.Build()
 		client.Send(response)
 		return
 
