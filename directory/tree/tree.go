@@ -1,13 +1,16 @@
 package tree
 
 import (
+	"encoding/gob"
 	"errors"
+	"io"
 	"strings"
 	"sync"
 
 	directoryPkg "github.com/ProjectLighthouseCAU/beacon/directory"
 	"github.com/ProjectLighthouseCAU/beacon/resource"
 	resourceImpl "github.com/ProjectLighthouseCAU/beacon/resource/broker"
+	"github.com/vmihailenco/msgpack"
 )
 
 // ### Directory Type ###
@@ -212,6 +215,9 @@ func (n *node) string(prefixAtLayer []bool) string {
 	return res
 }
 
+// ForEach executes a function on every resource in the directory.
+// When the provided function returns false, further execution is stopped.
+// When the provided function returns an error, the error is returned and further execution is also stopped.
 func (d *directory) ForEach(f func(resource.Resource) (bool, error)) error {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
@@ -237,6 +243,8 @@ func forEach(t tree, f func(resource.Resource) (bool, error)) (err error) {
 	return
 }
 
+// List lists the contents of a directory by returning a recursively nested map of subdirectories.
+// A resource is indicated by a nil value.
 func (d *directory) List(path []string) (map[string]interface{}, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
@@ -245,19 +253,121 @@ func (d *directory) List(path []string) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	return list(n), nil
+	m, err := list(n, false)
+	if err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
-func list(n *node) map[string]interface{} {
+func list(n *node, includeContent bool) (map[string]interface{}, error) {
 	result := make(map[string]interface{})
 	for k, v := range n.entries {
 		switch x := v.(type) {
 		case *leaf:
-			result[k] = nil // nil to indicate a resource (empty map is not distinguishable from empty directory)
+			if includeContent {
+				content, _ := x.resource.Get()
+				// we need to serialize the resource contents here
+				// so we can differentiate them from the directory structure
+				// e.g. a resource containing a map would be ambiguous
+				bs, err := msgpack.Marshal(content)
+				if err != nil {
+					return nil, err
+				}
+				result[k] = bs
+			} else {
+				result[k] = nil // nil to indicate a resource (empty map is not distinguishable from empty directory)
+			}
 		case *node:
-			result[k] = list(x) // recursive map to indicate a directory
+			var err error
+			result[k], err = list(x, includeContent) // recursive map to indicate a directory
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	return result
+	return result, nil
+}
+
+// Snapshotting might look unnecessarily complicated but there is a good reason for the decisions:
+// Marshaling the complete directory and resource contents with MsgPack makes it impossible to disinguish
+// between a directory and a map stored inside of a resource.
+// We therefore use MsgPack to marshal the resource contents (in order to keep full MsgPack compatibility)
+// and then gob (Go's binary encoding) to marshal the directory tree.
+// Restoring from a snapshot does the same thing in reverse: First decode with gob and then decode the resources with msgpack.
+// Note: shamaton/msgpack library decodes map[string]interface{} as map[interface{}]interface{} -> switched to vmihailenco/msgpack
+
+// Snapshot takes a snapshot of a directory (including the resource contents), serializes and writes it to the io.Writer.
+func (d *directory) Snapshot(path []string, writer io.Writer) error {
+	d.lock.RLock()
+	defer d.lock.RUnlock()
+	n, err := d.getDirectory(path, false)
+	if err != nil {
+		return err
+	}
+	gob.Register(map[string]interface{}{})
+	enc := gob.NewEncoder(writer)
+	m, err := list(n, true)
+	if err != nil {
+		return err
+	}
+	return enc.Encode(m)
+}
+
+// Restore restores a directory from a snapshot provided by the io.Reader.
+// It deserializes the snapshot and recreates all directories and resources
+// and fills the resources with their values from the snapshot.
+func (d *directory) Restore(path []string, reader io.Reader) error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
+	var m map[string]interface{}
+	gob.Register(map[string]interface{}{})
+	dec := gob.NewDecoder(reader)
+	err := dec.Decode(&m)
+	if err != nil {
+		return err
+	}
+	restore(d, path, m)
+	return nil
+}
+
+func restore(d *directory, path []string, m map[string]interface{}) error {
+	for k, v := range m {
+		switch x := v.(type) {
+		case map[string]interface{}:
+			_, err := d.getDirectory(append(path, k), true)
+			if err != nil {
+				return err
+			}
+			restore(d, append(path, k), x)
+		default:
+			n, err := d.getDirectory(path, true)
+			if err != nil {
+				return err
+			}
+			_, ok := n.entries[k]
+			if ok {
+				return errors.New(k + " in " + strings.Join(path, "/") + " already exists")
+			}
+			r := resourceImpl.Create(append(path, k))
+			var content interface{}
+			bs, ok := v.([]byte)
+			if !ok {
+				return errors.New("restore: could not deserialize resource")
+			}
+			err = msgpack.Unmarshal(bs, &content)
+			if err != nil {
+				return err
+			}
+			resp := r.Put(content)
+			if resp.Err != nil {
+				return err
+			}
+			n.entries[k] = &leaf{
+				resource: r,
+			}
+		}
+	}
+	return nil
 }

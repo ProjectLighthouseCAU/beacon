@@ -12,12 +12,14 @@ import (
 	"runtime"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/ProjectLighthouseCAU/beacon/auth/legacy"
 	"github.com/ProjectLighthouseCAU/beacon/directory/tree"
 	"github.com/ProjectLighthouseCAU/beacon/handler"
 	"github.com/ProjectLighthouseCAU/beacon/network"
 	"github.com/ProjectLighthouseCAU/beacon/network/websocket"
+	"github.com/ProjectLighthouseCAU/beacon/snapshot"
 	"github.com/ProjectLighthouseCAU/beacon/static"
 
 	"github.com/ProjectLighthouseCAU/beacon/config"
@@ -27,6 +29,8 @@ var (
 	websocketPort  = config.GetInt("WEBSOCKET_PORT", 3000)
 	websocketRoute = config.GetString("WEBSOCKET_ROUTE", "/websocket")
 	// tcpPort        = config.GetInt("TCP_PORT", 3001)
+	snapshotPath     = config.GetString("SNAPSHOT_PATH", "./beacon-snapshot")
+	snapshotInterval = config.GetDuration("SNAPSHOT_INTERVAL", 1*time.Second)
 )
 
 // The main function sets up the webserver routes for websocket connections
@@ -59,7 +63,15 @@ func main() {
 	auth := legacy.New()
 
 	directory := tree.NewTree()
-
+	f, err := os.Open(snapshotPath)
+	if err != nil {
+		log.Println("could not create or open snapshot file")
+	}
+	err = directory.Restore([]string{}, f)
+	if err != nil {
+		log.Println("could not restore snapshot file")
+	}
+	log.Println("Restored state from snapshot")
 	handler := handler.New(directory, auth)
 	// loggerHandler := handler.NewLogger()
 	handlers := []network.RequestHandler{handler}
@@ -76,6 +88,7 @@ func main() {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGINT, syscall.SIGTERM) // SIGINT: Ctrl + C, SIGTERM: used by docker
 
+	// TODO: move cli out of main or into new application (maybe add cmd directory)
 	// command line input
 	reader := bufio.NewReader(os.Stdin)
 	stop := make(chan struct{})
@@ -104,10 +117,36 @@ func main() {
 					fmt.Println(err.Error())
 				}
 				fmt.Print(s)
+			case "snapshot":
+				path := "./snapshot"
+				f, err := os.Create(path)
+				if err != nil {
+					fmt.Println(err.Error())
+				}
+				err = directory.Snapshot([]string{}, f)
+				if err != nil {
+					fmt.Println(err.Error())
+				}
+				f.Close()
+			case "restore":
+				path := "./snapshot"
+				f, err := os.Open(path)
+				if err != nil {
+					fmt.Println(err.Error())
+				}
+				err = directory.Restore([]string{}, f)
+				if err != nil {
+					fmt.Println(err.Error())
+				}
+				f.Close()
 			}
 		}
 	}()
+	snapshotter := snapshot.CreateSnapshotter(directory)
+	snapshotter.Start()
+	log.Printf("Started automatic snapshotting to %s every %s\n", snapshotPath, snapshotInterval)
 
+	// Wait for either interrupt or stop command
 	select {
 	case <-interrupt:
 	case <-stop:
@@ -121,6 +160,7 @@ func main() {
 	for _, h := range handlers {
 		h.Close()
 	}
-
+	log.Println("Closed all endpoints and handlers")
+	snapshotter.StopAndWait()
 	log.Println("Server stopped")
 }

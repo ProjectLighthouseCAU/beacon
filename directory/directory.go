@@ -1,6 +1,8 @@
 package directory
 
 import (
+	"io"
+
 	"github.com/ProjectLighthouseCAU/beacon/resource"
 )
 
@@ -32,4 +34,10 @@ type Directory interface {
 
 	// Returns the directory structure as a nested map
 	List(path []string) (map[string]interface{}, error)
+
+	// Takes a snapshot of a directory
+	Snapshot(path []string, writer io.Writer) error
+
+	// Restores from a snapshot of a directory
+	Restore(path []string, reader io.Reader) error
 }
