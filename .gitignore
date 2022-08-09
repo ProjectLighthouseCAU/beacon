@@ -1,3 +1,4 @@
 beacon
+beacon-snapshot
 profile*
 *.pprof
