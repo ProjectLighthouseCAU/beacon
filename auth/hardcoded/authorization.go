@@ -1,5 +1,5 @@
 // TEMPORARY SOLUTION
-package legacy
+package hardcoded
 
 import (
 	"net/http"

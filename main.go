@@ -14,7 +14,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ProjectLighthouseCAU/beacon/auth/legacy"
+	"github.com/ProjectLighthouseCAU/beacon/auth"
+	"github.com/ProjectLighthouseCAU/beacon/auth/hardcoded"
 	"github.com/ProjectLighthouseCAU/beacon/directory/tree"
 	"github.com/ProjectLighthouseCAU/beacon/handler"
 	"github.com/ProjectLighthouseCAU/beacon/network"
@@ -58,9 +59,16 @@ func main() {
 	log.Printf("GOMAXPROCS: %d\n", runtime.GOMAXPROCS(0))
 
 	// DEPENDENCY INJECTION:
-	// auth := &auth.AllowAll{}
-	// auth := &auth.AllowNone{}
-	auth := legacy.New()
+	var authImpl auth.Auth
+	switch config.GetString("AUTH", "") {
+	case "hardcoded":
+		authImpl = hardcoded.New()
+	case "allow_all":
+		authImpl = &auth.AllowAll{}
+	default:
+		log.Println("AUTH environment variable not specified, denying all access by default!")
+		authImpl = &auth.AllowNone{}
+	}
 
 	directory := tree.NewTree()
 	f, err := os.Open(snapshotPath)
@@ -72,7 +80,7 @@ func main() {
 		log.Println("could not restore snapshot file")
 	}
 	log.Println("Restored state from snapshot")
-	handler := handler.New(directory, auth)
+	handler := handler.New(directory, authImpl)
 	// loggerHandler := handler.NewLogger()
 	handlers := []network.RequestHandler{handler}
 
