@@ -137,14 +137,24 @@
         for (let i = 0; i < 28*14*3; i+=1) img[i] = 255;
         grid.renderImg(img)
       }
-
+      let foo = true;
       document.addEventListener("keydown", ({keyCode}) => {
-        if (keyCode < 37 || keyCode > 40) return;
-        socket.send(msgpack.encode({
-          src: 42,
-          key: keyCode,
-          dwn: true
-        }));
+        if (foo) {
+          foo = false;
+          message.PAYL = {
+            src: 42,
+            key: keyCode,
+            dwn: true
+          };
+          message.VERB = "PUT";
+          socket.send(msgpack.encode(message));
+        
+        setTimeout(() => {
+          message.PAYL.dwn = false
+          socket.send(msgpack.encode(message));
+        }, 50);
+        setTimeout(() => {foo = true}, 200);
+      }
       });
   </script>
 </head>
