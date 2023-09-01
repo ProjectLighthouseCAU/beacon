@@ -1,28 +1,54 @@
 # TASKS:
+
 - DONE: read from config file or environment variable
-(OR dynamically read config from own state written by another program (database reader etc.))
+  (OR dynamically read config from own state written by another program (database reader etc.))
 - Configurable parameters:
-	- DONE: port
-	- DONE: websocket route(s)
-	- DONE: websocket buffer sizes
-	- DONE: stream channel size
-	- later: database credentials (if authentication is handled by this server)
-	- authentication: USER, TOKEN, JWT
-	- authorization: ACL, RBAC, etc.
+  - DONE: port
+  - DONE: websocket route(s)
+  - DONE: websocket buffer sizes
+  - DONE: stream channel size
+  - later: database credentials (if authentication is handled by this server)
+  - authentication: USER, TOKEN, JWT
+  - authorization: ACL, RBAC, etc.
 - DONE: save current state of resources before terminating (or even periodically)
 - DONE: load last state of resources at startup
 - DONE: LINK operation to link a resource to another resource
 
 # TODO:
+
 - Limit upload size! DONE (in websocket)
 - Creation and deletion of resources: preloaded from config/auth, dynamically created/deleted, swap in/out
 - Authentication (microservice or fully integrated?)
 - Savepointing overhaul (one file per resource or one big file like now?)
-	- reimplement with new directory
+  - reimplement with new directory
 - Monitoring (using prometheus / influx?)
 - finish TCP and solve length header problem
-	- streaming deserialization with msgp
+  - streaming deserialization with msgp
 
-other resource impl:
-O(1) efficient bounded dynamically allocated but partially pre-allocated thread safe queue with multiple read-ends for low-latency applications in golang
--> Kafka / Haskell Chan
+## other resource impl:
+
+- O(1) efficient bounded dynamically allocated but partially pre-allocated thread safe queue with multiple read-ends for low-latency applications in golang
+- -> Kafka / Haskell Chan
+
+- dynamically allocated linked list is very slow, go channels have a fixed size and one continuous underlying array of memory (ring buffer)
+- implement a ring buffer using a fixed size array
+- keep the write end synchronized using a lock
+- keep track of the number of readers
+- remove a value from the ring buffer only when all readers have read it (this could be difficult)
+
+### try using channels first:
+
+- currently using one channel as input, a goroutine as a broker/forwarder, a variable with mutex and n channels for n streams
+- we would like to remove the goroutine as it consumes memory for every resource
+- Resource: Variable with Mutex + n channels (directly without broker goroutine)
+- Put: lock write mutex -> write variable -> send to all channels -> unlock write mutex
+  - alternatively unlock before sending to the channels
+  - thread safe, but:
+    - streams might get the values in different orders
+  - only do this if it really improves performance
+- Get: lock read mutex -> read variable -> unlock read mutex -> return value
+- Stream: lock write mutex -> add another stream to list/map of streams -> unlock write mutex
+- Stop: similar to stream but remove
+- Link: Same as Stream but:
+  - set "stream" channel of source to the input channel of the destination
+  - no need for a goroutine to forward the values
