@@ -31,10 +31,10 @@ var (
 type broker struct {
 	path []string // resource path
 
-	input   chan inputMsg                          // input channel (only for PUT)
-	control chan controlMsg                        // control channel (for everything else than PUT)
-	streams map[chan interface{}]bool              // keeps track of active subscriber streams (value indicates whether the channel is infinite->blocking-send or finite->non-blocking-send)
-	links   map[resource.Resource]chan interface{} // keeps track of active links from other resources
+	input   chan inputMsg                // input channel (only for PUT)
+	control chan controlMsg              // control channel (for everything else than PUT)
+	streams map[chan interface{}]bool    // keeps track of active subscriber streams (value indicates whether the channel is infinite->blocking-send or finite->non-blocking-send)
+	links   map[*broker]chan interface{} // keeps track of active links from other resources
 
 	value     interface{} // latest input value
 	valueLock sync.RWMutex
@@ -72,7 +72,7 @@ func Create(path []string) *broker {
 		control: make(chan controlMsg, controlChanSize),
 
 		streams: make(map[chan interface{}]bool),
-		links:   make(map[resource.Resource]chan interface{}),
+		links:   make(map[*broker]chan interface{}),
 
 		value:     nil,
 		valueLock: sync.RWMutex{},
@@ -162,12 +162,12 @@ func (r *broker) broker() {
 				controlMsg.ResponseChan <- resource.Response{Code: 200, Err: nil}
 
 			case LINK:
-				otherResource := controlMsg.Content.(resource.Resource)
+				otherResource := controlMsg.Content.(*broker)
 				if _, ok := r.links[otherResource]; ok {
 					controlMsg.ResponseChan <- resource.Response{Code: 200, Err: errors.New("the link already exists")}
 					break
 				}
-				if r.isLinkedBy(otherResource.(*broker)) {
+				if r.isLinkedBy(otherResource) {
 					controlMsg.ResponseChan <- resource.Response{Code: 508, Err: errors.New("the link causes a loop in the linking graph which is not allowed")}
 					break
 				}
@@ -181,7 +181,7 @@ func (r *broker) broker() {
 				controlMsg.ResponseChan <- resource.Response{Code: 200, Err: nil}
 
 			case UNLINK:
-				otherResource := controlMsg.Content.(resource.Resource)
+				otherResource := controlMsg.Content.(*broker)
 				stream, ok := r.links[otherResource]
 				if !ok {
 					controlMsg.ResponseChan <- resource.Response{Code: 404, Err: errors.New("the link does not exist and therefore cannot be removed")}
@@ -275,7 +275,7 @@ func (r *broker) isLinkedBy(other *broker) bool {
 	}
 	// check if any of the other resources links does link to the resource (transitive linking)
 	for res := range other.links {
-		if r.isLinkedBy(res.(*broker)) {
+		if r.isLinkedBy(res) {
 			return true
 		}
 	}
