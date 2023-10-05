@@ -8,7 +8,6 @@ import (
 	"github.com/ProjectLighthouseCAU/beacon/auth"
 	"github.com/ProjectLighthouseCAU/beacon/config"
 	"github.com/ProjectLighthouseCAU/beacon/directory"
-	"github.com/ProjectLighthouseCAU/beacon/directory/tree"
 	"github.com/ProjectLighthouseCAU/beacon/network"
 	"github.com/ProjectLighthouseCAU/beacon/resource"
 	"github.com/ProjectLighthouseCAU/beacon/types"
@@ -28,10 +27,10 @@ var _ network.RequestHandler = (*Handler)(nil)
 
 func New(dir directory.Directory, a auth.Auth) *Handler {
 	if dir == nil {
-		dir = tree.NewTree()
+		panic("cannot create handler without directory (nil)")
 	}
 	if a == nil {
-		a = &auth.AllowNone{}
+		panic("cannot create handler without auth (nil)")
 	}
 	return &Handler{
 		directory: dir,

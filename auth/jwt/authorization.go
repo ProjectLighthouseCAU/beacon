@@ -18,7 +18,7 @@ func (a *JWTAuth) IsAuthorized(c *types.Client, r *types.Request) (bool, int) {
 		return false, http.StatusUnauthorized
 	}
 	// TODO: verify request operation and path by lookup in jwt claims
-
+	// TODO: or make request to auth-service to check the access control rules
 	switch r.VERB {
 	case "POST": // create permission on path
 	case "DELETE": // delete permission on path

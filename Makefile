@@ -4,6 +4,9 @@ run:
 build:
 	go build -o beacon
 
+build-arm:
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm go build -a -installsuffix cgo -o beacon-arm
+
 full-build:
 	CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o beacon
 

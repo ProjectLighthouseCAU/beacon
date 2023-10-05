@@ -14,11 +14,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ProjectLighthouseCAU/beacon/auth/legacy"
+	"github.com/ProjectLighthouseCAU/beacon/auth"
+	"github.com/ProjectLighthouseCAU/beacon/auth/hardcoded"
 	"github.com/ProjectLighthouseCAU/beacon/directory/tree"
 	"github.com/ProjectLighthouseCAU/beacon/handler"
 	"github.com/ProjectLighthouseCAU/beacon/network"
 	"github.com/ProjectLighthouseCAU/beacon/network/websocket"
+	"github.com/ProjectLighthouseCAU/beacon/resource/broker"
 	"github.com/ProjectLighthouseCAU/beacon/snapshot"
 	"github.com/ProjectLighthouseCAU/beacon/static"
 
@@ -58,11 +60,20 @@ func main() {
 	log.Printf("GOMAXPROCS: %d\n", runtime.GOMAXPROCS(0))
 
 	// DEPENDENCY INJECTION:
-	// auth := &auth.AllowAll{}
-	// auth := &auth.AllowNone{}
-	auth := legacy.New()
+	var authImpl auth.Auth
+	switch config.GetString("AUTH", "") {
+	case "hardcoded":
+		authImpl = hardcoded.New()
+	case "allow_all":
+		authImpl = &auth.AllowAll{}
+	default:
+		log.Println("AUTH environment variable not specified, denying all access by default!")
+		authImpl = &auth.AllowNone{}
+	}
 
-	directory := tree.NewTree()
+	createResourceFunc := broker.Create
+	directory := tree.NewTree(createResourceFunc)
+
 	f, err := os.Open(snapshotPath)
 	if err != nil {
 		log.Println("could not create or open snapshot file")
@@ -70,9 +81,10 @@ func main() {
 	err = directory.Restore([]string{}, f)
 	if err != nil {
 		log.Println("could not restore snapshot file")
+	} else {
+		log.Println("Restored state from snapshot")
 	}
-	log.Println("Restored state from snapshot")
-	handler := handler.New(directory, auth)
+	handler := handler.New(directory, authImpl)
 	// loggerHandler := handler.NewLogger()
 	handlers := []network.RequestHandler{handler}
 

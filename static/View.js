@@ -149,7 +149,7 @@ Grid.prototype.renderBg = function(ctx) {
 	
 	ctx.fillStyle = '#000000';
 	ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-	ctx.fillStyle = 'rgb(0,0,200)';
+	ctx.fillStyle = 'rgb(0,0,0)';
 	ctx.fillRect(Math.floor(ratio.sX / 4),
 				Math.floor(ratio.sY / 4),
 				Math.floor(ratio.stepX*this.width - ratio.sX / 4),

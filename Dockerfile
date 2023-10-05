@@ -2,7 +2,7 @@
 
 ### BUILD IMAGE ###
 
-FROM golang:1.16-alpine AS compile-stage
+FROM golang:1.21-alpine AS compile-stage
 
 # git needed by go get / go build
 RUN apk add git
@@ -33,7 +33,7 @@ RUN chmod -R +rwx /app
 # build the application
 ARG CGO_ENABLED=0
 ARG GOOS=linux
-RUN go build -a -installsuffix cgo -o lighthouse-server .
+RUN go build -a -installsuffix cgo -o beacon .
 
 ### RUNTIME IMAGE ###
 
@@ -44,8 +44,8 @@ COPY --from=compile-stage /etc/group /etc/group
 COPY --from=compile-stage /etc/shadow /etc/shadow
 USER app
 # copy the binary and static files from the build image
-COPY --chown=app:app --from=compile-stage /app/lighthouse-server .
+COPY --chown=app:app --from=compile-stage /app/beacon /beacon
 COPY --chown=app:app --from=compile-stage /app/static /static
 # copy the data folder with the correct permissions for the volume mount
 COPY --chown=app:app --from=compile-stage /app/data /data
-ENTRYPOINT ["/lighthouse-server"]
+ENTRYPOINT ["/beacon"]

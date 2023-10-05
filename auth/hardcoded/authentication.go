@@ -2,7 +2,7 @@
 // because legacy PostgreSQL listens on 127.0.0.1
 // which is not accessible from within the docker container (except with host networking)
 // -> using static json config file instead for testing
-package legacy
+package hardcoded
 
 import (
 	"encoding/json"

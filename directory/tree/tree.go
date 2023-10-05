@@ -9,7 +9,6 @@ import (
 
 	directoryPkg "github.com/ProjectLighthouseCAU/beacon/directory"
 	"github.com/ProjectLighthouseCAU/beacon/resource"
-	resourceImpl "github.com/ProjectLighthouseCAU/beacon/resource/broker"
 	"github.com/vmihailenco/msgpack"
 )
 
@@ -18,15 +17,20 @@ import (
 var _ directoryPkg.Directory = (*directory)(nil) // directory type implements Directory interface
 
 type directory struct {
-	root tree
-	lock sync.RWMutex
+	root               tree
+	lock               sync.RWMutex
+	createResourceFunc func(path []string) resource.Resource
 }
 
-func NewTree() *directory {
+func NewTree(createResourceFunc func(path []string) resource.Resource) *directory {
+	if createResourceFunc == nil {
+		panic("cannot create directory tree without createResourceFunc (nil)")
+	}
 	return &directory{
 		root: &node{
 			entries: make(map[string]tree),
 		},
+		createResourceFunc: createResourceFunc,
 	}
 }
 
@@ -97,7 +101,7 @@ func (d *directory) CreateResource(path []string) error {
 		return errors.New(path[len(path)-1] + " in " + strings.Join(path, "/") + " already exists")
 	}
 	n.entries[path[len(path)-1]] = &leaf{
-		resource: resourceImpl.Create(path),
+		resource: d.createResourceFunc(path),
 	}
 	return nil
 }
@@ -350,7 +354,7 @@ func restore(d *directory, path []string, m map[string]interface{}) error {
 			if ok {
 				return errors.New(k + " in " + strings.Join(path, "/") + " already exists")
 			}
-			r := resourceImpl.Create(append(path, k))
+			r := d.createResourceFunc(append(path, k))
 			var content interface{}
 			bs, ok := v.([]byte)
 			if !ok {
