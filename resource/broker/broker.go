@@ -173,7 +173,7 @@ func (r *broker) broker() {
 					break
 				}
 				if r.isLinkedBy(otherResource) {
-					controlMsg.ResponseChan <- resource.Response{Code: 409, Err: errors.New("the link causes a loop in the linking graph which is not allowed")}
+					controlMsg.ResponseChan <- resource.Response{Code: 508, Err: errors.New("the link causes a loop in the linking graph which is not allowed")}
 					break
 				}
 				stream, _ := otherResource.Stream()
