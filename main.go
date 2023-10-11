@@ -20,7 +20,9 @@ import (
 	"github.com/ProjectLighthouseCAU/beacon/handler"
 	"github.com/ProjectLighthouseCAU/beacon/network"
 	"github.com/ProjectLighthouseCAU/beacon/network/websocket"
+	"github.com/ProjectLighthouseCAU/beacon/resource"
 	"github.com/ProjectLighthouseCAU/beacon/resource/broker"
+	"github.com/ProjectLighthouseCAU/beacon/resource/brokerless"
 	"github.com/ProjectLighthouseCAU/beacon/snapshot"
 	"github.com/ProjectLighthouseCAU/beacon/static"
 
@@ -71,7 +73,17 @@ func main() {
 		authImpl = &auth.AllowNone{}
 	}
 
-	createResourceFunc := broker.Create
+	var createResourceFunc func(path []string) resource.Resource
+	switch config.GetString("RESOURCE_IMPL", "brokerless") {
+	case "brokerless":
+		createResourceFunc = brokerless.Create
+	case "broker":
+		createResourceFunc = broker.Create
+	default:
+		log.Println("RESOURCE_IMPL environment variable not specified, using \"brokerless\" as default")
+		createResourceFunc = brokerless.Create
+	}
+
 	directory := tree.NewTree(createResourceFunc)
 
 	f, err := os.Open(snapshotPath)
