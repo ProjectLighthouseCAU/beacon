@@ -46,7 +46,8 @@ type Admin struct {
 const (
 	userQuery = `SELECT username, token
 FROM webmultiplexer.api_tokens
-WHERE issued >= LOCALTIMESTAMP - INTERVAL '2 day 30 minutes'`
+WHERE permanent
+OR issued >= LOCALTIMESTAMP - INTERVAL '2 day 30 minutes'`
 
 	adminQuery = `SELECT webmultiplexer.users.username
 FROM webmultiplexer.user_groups
