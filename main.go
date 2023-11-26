@@ -16,6 +16,7 @@ import (
 
 	"github.com/ProjectLighthouseCAU/beacon/auth"
 	"github.com/ProjectLighthouseCAU/beacon/auth/hardcoded"
+	"github.com/ProjectLighthouseCAU/beacon/auth/legacy"
 	"github.com/ProjectLighthouseCAU/beacon/directory/tree"
 	"github.com/ProjectLighthouseCAU/beacon/handler"
 	"github.com/ProjectLighthouseCAU/beacon/network"
@@ -61,18 +62,6 @@ func main() {
 
 	log.Printf("GOMAXPROCS: %d\n", runtime.GOMAXPROCS(0))
 
-	// DEPENDENCY INJECTION:
-	var authImpl auth.Auth
-	switch config.GetString("AUTH", "") {
-	case "hardcoded":
-		authImpl = hardcoded.New()
-	case "allow_all":
-		authImpl = &auth.AllowAll{}
-	default:
-		log.Println("AUTH environment variable not specified, denying all access by default!")
-		authImpl = &auth.AllowNone{}
-	}
-
 	var createResourceFunc func(path []string) resource.Resource
 	switch config.GetString("RESOURCE_IMPL", "brokerless") {
 	case "brokerless":
@@ -96,12 +85,24 @@ func main() {
 	} else {
 		log.Println("Restored state from snapshot")
 	}
+
+	var authImpl auth.Auth
+	switch config.GetString("AUTH", "") {
+	case "hardcoded":
+		authImpl = hardcoded.New()
+	case "legacy":
+		authImpl = legacy.New(directory)
+	case "allow_all":
+		authImpl = &auth.AllowAll{}
+	default:
+		log.Println("AUTH environment variable not specified, denying all access by default!")
+		authImpl = &auth.AllowNone{}
+	}
+
 	handler := handler.New(directory, authImpl)
-	// loggerHandler := handler.NewLogger()
 	handlers := []network.RequestHandler{handler}
 
 	websocketEndpoint := websocket.CreateEndpoint(websocketPort, websocketRoute, handlers)
-	// tcpEndpoint := tcp.CreateEndpoint(tcpPort, handlers)
 	endpoints := []network.Endpoint{websocketEndpoint}
 
 	static.StartFileserver()
