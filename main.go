@@ -31,6 +31,7 @@ import (
 )
 
 var (
+	websocketHost  = config.GetString("WEBSOCKET_HOST", "127.0.0.1")
 	websocketPort  = config.GetInt("WEBSOCKET_PORT", 3000)
 	websocketRoute = config.GetString("WEBSOCKET_ROUTE", "/websocket")
 	// tcpPort        = config.GetInt("TCP_PORT", 3001)
@@ -102,7 +103,7 @@ func main() {
 	handler := handler.New(directory, authImpl)
 	handlers := []network.RequestHandler{handler}
 
-	websocketEndpoint := websocket.CreateEndpoint(websocketPort, websocketRoute, handlers)
+	websocketEndpoint := websocket.CreateEndpoint(websocketHost, websocketPort, websocketRoute, handlers)
 	endpoints := []network.Endpoint{websocketEndpoint}
 
 	static.StartFileserver()

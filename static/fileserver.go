@@ -10,6 +10,7 @@ import (
 )
 
 var (
+	webinterfaceHost  = config.GetString("WEBINTERFACE_HOST", "127.0.0.1")
 	webinterfaceRoute = config.GetString("WEBINTERFACE_ROUTE", "/")
 	webinterfacePort  = config.GetInt("WEBINTERFACE_PORT", 3001)
 )
@@ -20,7 +21,7 @@ func StartFileserver() {
 	mux := http.NewServeMux()
 	mux.Handle(webinterfaceRoute, http.FileServer(http.Dir("./static")))
 	serv := &http.Server{
-		Addr:    ":" + fmt.Sprint(webinterfacePort),
+		Addr:    webinterfaceHost + ":" + fmt.Sprint(webinterfacePort),
 		Handler: mux,
 	}
 	go func() {
