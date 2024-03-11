@@ -1,7 +1,3 @@
-// Integration with the legacy system (direct database access) not possible
-// because legacy PostgreSQL listens on 127.0.0.1
-// which is not accessible from within the docker container (except with host networking)
-// -> using static json config file instead for testing
 package hardcoded
 
 import (

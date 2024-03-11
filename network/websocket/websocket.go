@@ -35,14 +35,14 @@ type Endpoint struct { // extends BaseEndpoint implements network.Endpoint (remi
 var _ network.Endpoint = (*Endpoint)(nil) // implements
 
 // CreateEndpoint initiates the websocket endpoint (blocking call)
-func CreateEndpoint(port int, route string, handlers []network.RequestHandler) *Endpoint {
+func CreateEndpoint(host string, port int, route string, handlers []network.RequestHandler) *Endpoint {
 
 	defer func() { // recover from any panic during initialization and retry
 		if r := recover(); r != nil {
 			log.Println("Error while creating websocket endpoint: ", r)
 			log.Println("Retrying in 3 seconds...")
 			time.Sleep(3 * time.Second)
-			CreateEndpoint(port, route, handlers)
+			CreateEndpoint(host, port, route, handlers)
 		}
 	}()
 
@@ -53,7 +53,7 @@ func CreateEndpoint(port int, route string, handlers []network.RequestHandler) *
 			Type:     network.Websocket,
 			Handlers: handlers,
 		},
-		httpServer: &http.Server{Addr: ":" + strconv.Itoa(port)},
+		httpServer: &http.Server{Addr: host + ":" + strconv.Itoa(port)},
 		upgrader: websocket.Upgrader{
 			ReadBufferSize:  readBufferSize,
 			WriteBufferSize: writeBufferSize,

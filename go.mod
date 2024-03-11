@@ -11,6 +11,8 @@ require (
 
 require (
 	github.com/golang/protobuf v1.5.3 // indirect
+	github.com/jmoiron/sqlx v1.3.5 // indirect
+	github.com/lib/pq v1.10.9 // indirect
 	github.com/philhofer/fwd v1.1.2 // indirect
 	golang.org/x/net v0.17.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
