@@ -1,6 +1,8 @@
 # The Lighthouse Server (Beacon)
 ### **B**asis for **E**very **A**pplication with **C**onnections **O**ver **N**etworks
 
+[![CI/CD](https://github.com/ProjectLighthouseCAU/beacon/actions/workflows/ci.yml/badge.svg)](https://github.com/ProjectLighthouseCAU/beacon/actions/workflows/ci.yml)
+
 ## About
 At Project Lighthouse we wanted to provide our users (mostly students) with a platform for building animations and games to be played on our big screen, the "Lighthouse" - an LED installation inside a 14 story university building.  
 Because users need to test their applications against our API, we needed a kind of virtual Lighthouse for that.  
