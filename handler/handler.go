@@ -11,6 +11,8 @@ import (
 	"github.com/ProjectLighthouseCAU/beacon/network"
 	"github.com/ProjectLighthouseCAU/beacon/resource"
 	"github.com/ProjectLighthouseCAU/beacon/types"
+	"github.com/tinylib/msgp/msgp"
+	"github.com/vmihailenco/msgpack"
 )
 
 var (
@@ -137,7 +139,13 @@ func (handler *Handler) HandleRequest(client *types.Client, request *types.Reque
 			client.Send(response)
 			return
 		}
-		response.Rnum(http.StatusOK).Payload(lst).Build()
+		payl, err := msgpack.Marshal(lst)
+		if err != nil {
+			response.Warning(err.Error()).Rnum(http.StatusInternalServerError).Build()
+			client.Send(response)
+			return
+		}
+		response.Rnum(http.StatusOK).Payload(payl).Build()
 		client.Send(response)
 		return
 	}
@@ -155,7 +163,7 @@ func (handler *Handler) HandleRequest(client *types.Client, request *types.Reque
 		if resp.Err != nil {
 			response.Warning(resp.Err.Error())
 		}
-		response.Rnum(resp.Code).Payload(payload)
+		response.Rnum(resp.Code).Payload(payload.(msgp.Raw))
 
 	case "PUT":
 		resp := resource.Put(request.PAYL)
@@ -172,7 +180,7 @@ func (handler *Handler) HandleRequest(client *types.Client, request *types.Reque
 				response.Warning(resp.Err.Error())
 			}
 			response.Warning("Already streaming this resource")
-			response.Rnum(resp.Code).Payload(payload)
+			response.Rnum(resp.Code).Payload(payload.(msgp.Raw))
 			break
 		}
 		// create stream channel and add it to the client
@@ -186,7 +194,7 @@ func (handler *Handler) HandleRequest(client *types.Client, request *types.Reque
 		go func() {
 			streamResponse := types.NewResponse().Reid(request.REID).Rnum(http.StatusOK)
 			for payload := range stream {
-				streamResponse.Payload(payload).Build()
+				streamResponse.Payload(payload.(msgp.Raw)).Build()
 				err := client.Send(streamResponse)
 				if err != nil { // client closed
 					resource.StopStream(stream)
@@ -199,7 +207,7 @@ func (handler *Handler) HandleRequest(client *types.Client, request *types.Reque
 		if resp.Err != nil {
 			response.Warning(resp.Err.Error())
 		}
-		response.Rnum(resp.Code).Payload(payload)
+		response.Rnum(resp.Code).Payload(payload.(msgp.Raw))
 
 	case "STOP":
 		stream := client.GetStream(request.PATH)

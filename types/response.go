@@ -3,32 +3,29 @@ package types
 import (
 	"log"
 	"net/http"
+
+	"github.com/tinylib/msgp/msgp"
 )
 
 //go:generate msgp
 
 // The Response type is specified by the Lighthouse-Protocol.
 type Response struct {
-	REID     interface{}
+	REID     msgp.Raw
 	RNUM     int
 	RESPONSE string
 	META     map[interface{}]interface{}
-	PAYL     interface{}
-	WARNINGS []interface{}
-}
-
-func (r *Response) Equals(o *Response) bool {
-	// TODO: check META and WARNINGS
-	return r.REID == o.REID && r.RNUM == o.RNUM && r.RESPONSE == o.RESPONSE && r.PAYL == o.PAYL
+	PAYL     msgp.Raw
+	WARNINGS []string
 }
 
 func NewResponse() *Response {
 	return &Response{
 		META:     map[interface{}]interface{}{},
-		WARNINGS: []interface{}{},
+		WARNINGS: []string{},
 	}
 }
-func (r *Response) Reid(reid interface{}) *Response {
+func (r *Response) Reid(reid msgp.Raw) *Response {
 	r.REID = reid
 	return r
 }
@@ -44,19 +41,18 @@ func (r *Response) Meta(key interface{}, value interface{}) *Response {
 	r.META[key] = value
 	return r
 }
-func (r *Response) Payload(payl interface{}) *Response {
+func (r *Response) Payload(payl msgp.Raw) *Response {
 	r.PAYL = payl
 	return r
 }
 func (r *Response) Warning(warning string) *Response {
-	var iface interface{} = warning
-	r.WARNINGS = append(r.WARNINGS, iface)
+	r.WARNINGS = append(r.WARNINGS, warning)
 	return r
 }
 func (r *Response) Build() *Response {
 	if r.REID == nil {
 		log.Println("REID must be set")
-		r.REID = 0
+		r.REID = []byte{0xc0} // msgpack nil
 	}
 	if http.StatusText(r.RNUM) == "" {
 		log.Println("RNUM must be set and valid HTTP status code")
