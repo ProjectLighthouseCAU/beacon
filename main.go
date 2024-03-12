@@ -3,20 +3,18 @@
 package main
 
 import (
-	"bufio"
-	"fmt"
 	"log"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"runtime"
-	"strings"
 	"syscall"
 	"time"
 
 	"github.com/ProjectLighthouseCAU/beacon/auth"
 	"github.com/ProjectLighthouseCAU/beacon/auth/hardcoded"
 	"github.com/ProjectLighthouseCAU/beacon/auth/legacy"
+	"github.com/ProjectLighthouseCAU/beacon/cli"
 	"github.com/ProjectLighthouseCAU/beacon/directory/tree"
 	"github.com/ProjectLighthouseCAU/beacon/handler"
 	"github.com/ProjectLighthouseCAU/beacon/network"
@@ -114,60 +112,9 @@ func main() {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGINT, syscall.SIGTERM) // SIGINT: Ctrl + C, SIGTERM: used by docker
 
-	// TODO: move cli out of main or into new application (maybe add cmd directory)
-	// command line input
-	reader := bufio.NewReader(os.Stdin)
 	stop := make(chan struct{})
-	go func() {
-	Loop:
-		for {
-			fmt.Print("[list <path/to/directory>, stop]> ")
-			s, err := reader.ReadString('\n')
-			s = strings.TrimSuffix(s, "\n")
-			if err != nil {
-				fmt.Println(err)
-				break
-			}
-			words := strings.Split(s, " ")
-			switch words[0] {
-			case "stop":
-				close(stop)
-				break Loop
-			case "list":
-				path := []string{}
-				if len(words) > 1 {
-					path = strings.Split(words[1], "/")
-				}
-				s, err := directory.String(path)
-				if err != nil {
-					fmt.Println(err.Error())
-				}
-				fmt.Print(s)
-			case "snapshot":
-				path := "./beacon-snapshot"
-				f, err := os.Create(path)
-				if err != nil {
-					fmt.Println(err.Error())
-				}
-				err = directory.Snapshot([]string{}, f)
-				if err != nil {
-					fmt.Println(err.Error())
-				}
-				f.Close()
-			case "restore":
-				path := "./beacon-snapshot"
-				f, err := os.Open(path)
-				if err != nil {
-					fmt.Println(err.Error())
-				}
-				err = directory.Restore([]string{}, f)
-				if err != nil {
-					fmt.Println(err.Error())
-				}
-				f.Close()
-			}
-		}
-	}()
+	go cli.RunCLI(stop, directory, snapshotPath)
+
 	snapshotter := snapshot.CreateSnapshotter(directory)
 	snapshotter.Start()
 	log.Printf("Started automatic snapshotting to %s every %s\n", snapshotPath, snapshotInterval)
