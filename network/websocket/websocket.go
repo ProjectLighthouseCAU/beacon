@@ -142,9 +142,11 @@ func getWebsocketHandler(ep *Endpoint) http.HandlerFunc {
 				conn.Close()
 				return
 			}
-			var response *types.Response
+
 			if messageType != websocket.BinaryMessage {
-				response = types.NewResponse().Warning("Non binary-type message received, use websocket binary-type instead")
+				response := types.NewResponse().Warning("Non binary-type message received, use websocket binary-type instead")
+				client.Send(response)
+				continue
 			}
 			request := types.Request{}
 			_, err = request.UnmarshalMsg(payload)
@@ -160,7 +162,7 @@ func getWebsocketHandler(ep *Endpoint) http.HandlerFunc {
 				continue
 			}
 			for _, h := range ep.Handlers {
-				h.HandleRequest(client, &request, response)
+				h.HandleRequest(client, &request)
 			}
 		}
 	}

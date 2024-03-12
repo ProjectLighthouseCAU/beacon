@@ -28,7 +28,7 @@ type Endpoint interface {
 
 // RequestHandler is an interface for a handler that registers itself at the endpoints
 type RequestHandler interface {
-	HandleRequest(*types.Client, *types.Request, *types.Response)
+	HandleRequest(*types.Client, *types.Request)
 	Disconnect(*types.Client)
 	Close()
 }

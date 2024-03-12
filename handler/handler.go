@@ -57,7 +57,7 @@ func (handler *Handler) Disconnect(client *types.Client) {
 	})
 }
 
-func (handler *Handler) HandleRequest(client *types.Client, request *types.Request, response *types.Response) {
+func (handler *Handler) HandleRequest(client *types.Client, request *types.Request) {
 	defer func() { // recover from any panic while handling the request to prevent complete server crash
 		if r := recover(); r != nil {
 			log.Println("Recovering from panic in handler:", r)
@@ -76,9 +76,7 @@ func (handler *Handler) HandleRequest(client *types.Client, request *types.Reque
 	}
 
 	// create response
-	if response == nil {
-		response = types.NewResponse()
-	}
+	response := types.NewResponse()
 	response.Reid(request.REID)
 
 	// create resource in case of POST
