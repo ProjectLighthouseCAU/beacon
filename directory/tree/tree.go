@@ -350,7 +350,7 @@ func restore(d *directory, path []string, m map[string]interface{}) error {
 				return errors.New(k + " in " + strings.Join(path, "/") + " already exists")
 			}
 			r := d.createResourceFunc(append(path, k))
-			content := v.(msgp.Raw)
+			content := (msgp.Raw)(v.([]byte))
 			resp := r.Put(content)
 			if resp.Err != nil {
 				return err
