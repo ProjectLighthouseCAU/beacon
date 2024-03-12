@@ -82,7 +82,7 @@ func main() {
 	}
 	err = directory.Restore([]string{}, f)
 	if err != nil {
-		log.Println("could not restore snapshot file")
+		log.Println("could not restore snapshot file:", err)
 	} else {
 		log.Println("Restored state from snapshot")
 	}
@@ -144,7 +144,7 @@ func main() {
 				}
 				fmt.Print(s)
 			case "snapshot":
-				path := "./snapshot"
+				path := "./beacon-snapshot"
 				f, err := os.Create(path)
 				if err != nil {
 					fmt.Println(err.Error())
@@ -155,7 +155,7 @@ func main() {
 				}
 				f.Close()
 			case "restore":
-				path := "./snapshot"
+				path := "./beacon-snapshot"
 				f, err := os.Open(path)
 				if err != nil {
 					fmt.Println(err.Error())

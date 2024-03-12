@@ -9,7 +9,7 @@ import (
 
 	directoryPkg "github.com/ProjectLighthouseCAU/beacon/directory"
 	"github.com/ProjectLighthouseCAU/beacon/resource"
-	"github.com/vmihailenco/msgpack"
+	"github.com/tinylib/msgp/msgp"
 )
 
 // ### Directory Type ###
@@ -271,14 +271,7 @@ func list(n *node, includeContent bool) (map[string]interface{}, error) {
 		case *leaf:
 			if includeContent {
 				content, _ := x.resource.Get()
-				// we need to serialize the resource contents here
-				// so we can differentiate them from the directory structure
-				// e.g. a resource containing a map would be ambiguous
-				bs, err := msgpack.Marshal(content)
-				if err != nil {
-					return nil, err
-				}
-				result[k] = bs
+				result[k] = ([]byte)(content.(msgp.Raw))
 			} else {
 				result[k] = nil // nil to indicate a resource (empty map is not distinguishable from empty directory)
 			}
@@ -332,8 +325,7 @@ func (d *directory) Restore(path []string, reader io.Reader) error {
 	if err != nil {
 		return err
 	}
-	restore(d, path, m)
-	return nil
+	return restore(d, path, m)
 }
 
 func restore(d *directory, path []string, m map[string]interface{}) error {
@@ -344,7 +336,10 @@ func restore(d *directory, path []string, m map[string]interface{}) error {
 			if err != nil {
 				return err
 			}
-			restore(d, append(path, k), x)
+			err = restore(d, append(path, k), x)
+			if err != nil {
+				return err
+			}
 		default:
 			n, err := d.getDirectory(path, true)
 			if err != nil {
@@ -355,15 +350,7 @@ func restore(d *directory, path []string, m map[string]interface{}) error {
 				return errors.New(k + " in " + strings.Join(path, "/") + " already exists")
 			}
 			r := d.createResourceFunc(append(path, k))
-			var content interface{}
-			bs, ok := v.([]byte)
-			if !ok {
-				return errors.New("restore: could not deserialize resource")
-			}
-			err = msgpack.Unmarshal(bs, &content)
-			if err != nil {
-				return err
-			}
+			content := v.(msgp.Raw)
 			resp := r.Put(content)
 			if resp.Err != nil {
 				return err
