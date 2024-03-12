@@ -19,11 +19,11 @@ var _ auth.Auth = (*AllowCustom)(nil)
 
 // IsAuthorized determines whether a request is authorized
 func (a *AllowCustom) IsAuthorized(c *types.Client, req *types.Request) (bool, int) {
-	username, ok := req.AUTH["USER"].(string)
+	username, ok := req.AUTH["USER"]
 	if !ok {
 		return false, http.StatusUnauthorized
 	}
-	token, ok := req.AUTH["TOKEN"].(string)
+	token, ok := req.AUTH["TOKEN"]
 	if !ok {
 		return false, http.StatusUnauthorized
 	}

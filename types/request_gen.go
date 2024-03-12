@@ -25,7 +25,7 @@ func (z *Request) DecodeMsg(dc *msgp.Reader) (err error) {
 		}
 		switch msgp.UnsafeString(field) {
 		case "REID":
-			z.REID, err = dc.ReadIntf()
+			err = z.REID.DecodeMsg(dc)
 			if err != nil {
 				err = msgp.WrapError(err, "REID")
 				return
@@ -38,7 +38,7 @@ func (z *Request) DecodeMsg(dc *msgp.Reader) (err error) {
 				return
 			}
 			if z.AUTH == nil {
-				z.AUTH = make(map[string]interface{}, zb0002)
+				z.AUTH = make(map[string]string, zb0002)
 			} else if len(z.AUTH) > 0 {
 				for key := range z.AUTH {
 					delete(z.AUTH, key)
@@ -47,13 +47,13 @@ func (z *Request) DecodeMsg(dc *msgp.Reader) (err error) {
 			for zb0002 > 0 {
 				zb0002--
 				var za0001 string
-				var za0002 interface{}
+				var za0002 string
 				za0001, err = dc.ReadString()
 				if err != nil {
 					err = msgp.WrapError(err, "AUTH")
 					return
 				}
-				za0002, err = dc.ReadIntf()
+				za0002, err = dc.ReadString()
 				if err != nil {
 					err = msgp.WrapError(err, "AUTH", za0001)
 					return
@@ -86,7 +86,7 @@ func (z *Request) DecodeMsg(dc *msgp.Reader) (err error) {
 				}
 			}
 		case "PAYL":
-			z.PAYL, err = dc.ReadIntf()
+			err = z.PAYL.DecodeMsg(dc)
 			if err != nil {
 				err = msgp.WrapError(err, "PAYL")
 				return
@@ -110,7 +110,7 @@ func (z *Request) EncodeMsg(en *msgp.Writer) (err error) {
 	if err != nil {
 		return
 	}
-	err = en.WriteIntf(z.REID)
+	err = z.REID.EncodeMsg(en)
 	if err != nil {
 		err = msgp.WrapError(err, "REID")
 		return
@@ -131,7 +131,7 @@ func (z *Request) EncodeMsg(en *msgp.Writer) (err error) {
 			err = msgp.WrapError(err, "AUTH")
 			return
 		}
-		err = en.WriteIntf(za0002)
+		err = en.WriteString(za0002)
 		if err != nil {
 			err = msgp.WrapError(err, "AUTH", za0001)
 			return
@@ -169,7 +169,7 @@ func (z *Request) EncodeMsg(en *msgp.Writer) (err error) {
 	if err != nil {
 		return
 	}
-	err = en.WriteIntf(z.PAYL)
+	err = z.PAYL.EncodeMsg(en)
 	if err != nil {
 		err = msgp.WrapError(err, "PAYL")
 		return
@@ -183,7 +183,7 @@ func (z *Request) MarshalMsg(b []byte) (o []byte, err error) {
 	// map header, size 5
 	// string "REID"
 	o = append(o, 0x85, 0xa4, 0x52, 0x45, 0x49, 0x44)
-	o, err = msgp.AppendIntf(o, z.REID)
+	o, err = z.REID.MarshalMsg(o)
 	if err != nil {
 		err = msgp.WrapError(err, "REID")
 		return
@@ -193,11 +193,7 @@ func (z *Request) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.AppendMapHeader(o, uint32(len(z.AUTH)))
 	for za0001, za0002 := range z.AUTH {
 		o = msgp.AppendString(o, za0001)
-		o, err = msgp.AppendIntf(o, za0002)
-		if err != nil {
-			err = msgp.WrapError(err, "AUTH", za0001)
-			return
-		}
+		o = msgp.AppendString(o, za0002)
 	}
 	// string "VERB"
 	o = append(o, 0xa4, 0x56, 0x45, 0x52, 0x42)
@@ -210,7 +206,7 @@ func (z *Request) MarshalMsg(b []byte) (o []byte, err error) {
 	}
 	// string "PAYL"
 	o = append(o, 0xa4, 0x50, 0x41, 0x59, 0x4c)
-	o, err = msgp.AppendIntf(o, z.PAYL)
+	o, err = z.PAYL.MarshalMsg(o)
 	if err != nil {
 		err = msgp.WrapError(err, "PAYL")
 		return
@@ -237,7 +233,7 @@ func (z *Request) UnmarshalMsg(bts []byte) (o []byte, err error) {
 		}
 		switch msgp.UnsafeString(field) {
 		case "REID":
-			z.REID, bts, err = msgp.ReadIntfBytes(bts)
+			bts, err = z.REID.UnmarshalMsg(bts)
 			if err != nil {
 				err = msgp.WrapError(err, "REID")
 				return
@@ -250,7 +246,7 @@ func (z *Request) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				return
 			}
 			if z.AUTH == nil {
-				z.AUTH = make(map[string]interface{}, zb0002)
+				z.AUTH = make(map[string]string, zb0002)
 			} else if len(z.AUTH) > 0 {
 				for key := range z.AUTH {
 					delete(z.AUTH, key)
@@ -258,14 +254,14 @@ func (z *Request) UnmarshalMsg(bts []byte) (o []byte, err error) {
 			}
 			for zb0002 > 0 {
 				var za0001 string
-				var za0002 interface{}
+				var za0002 string
 				zb0002--
 				za0001, bts, err = msgp.ReadStringBytes(bts)
 				if err != nil {
 					err = msgp.WrapError(err, "AUTH")
 					return
 				}
-				za0002, bts, err = msgp.ReadIntfBytes(bts)
+				za0002, bts, err = msgp.ReadStringBytes(bts)
 				if err != nil {
 					err = msgp.WrapError(err, "AUTH", za0001)
 					return
@@ -298,7 +294,7 @@ func (z *Request) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				}
 			}
 		case "PAYL":
-			z.PAYL, bts, err = msgp.ReadIntfBytes(bts)
+			bts, err = z.PAYL.UnmarshalMsg(bts)
 			if err != nil {
 				err = msgp.WrapError(err, "PAYL")
 				return
@@ -317,17 +313,17 @@ func (z *Request) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *Request) Msgsize() (s int) {
-	s = 1 + 5 + msgp.GuessSize(z.REID) + 5 + msgp.MapHeaderSize
+	s = 1 + 5 + z.REID.Msgsize() + 5 + msgp.MapHeaderSize
 	if z.AUTH != nil {
 		for za0001, za0002 := range z.AUTH {
 			_ = za0002
-			s += msgp.StringPrefixSize + len(za0001) + msgp.GuessSize(za0002)
+			s += msgp.StringPrefixSize + len(za0001) + msgp.StringPrefixSize + len(za0002)
 		}
 	}
 	s += 5 + msgp.StringPrefixSize + len(z.VERB) + 5 + msgp.ArrayHeaderSize
 	for za0003 := range z.PATH {
 		s += msgp.StringPrefixSize + len(z.PATH[za0003])
 	}
-	s += 5 + msgp.GuessSize(z.PAYL)
+	s += 5 + z.PAYL.Msgsize()
 	return
 }

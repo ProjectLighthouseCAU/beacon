@@ -25,7 +25,7 @@ func (z *Response) DecodeMsg(dc *msgp.Reader) (err error) {
 		}
 		switch msgp.UnsafeString(field) {
 		case "REID":
-			z.REID, err = dc.ReadIntf()
+			err = z.REID.DecodeMsg(dc)
 			if err != nil {
 				err = msgp.WrapError(err, "REID")
 				return
@@ -43,7 +43,7 @@ func (z *Response) DecodeMsg(dc *msgp.Reader) (err error) {
 				return
 			}
 		case "PAYL":
-			z.PAYL, err = dc.ReadIntf()
+			err = z.PAYL.DecodeMsg(dc)
 			if err != nil {
 				err = msgp.WrapError(err, "PAYL")
 				return
@@ -58,10 +58,10 @@ func (z *Response) DecodeMsg(dc *msgp.Reader) (err error) {
 			if cap(z.WARNINGS) >= int(zb0002) {
 				z.WARNINGS = (z.WARNINGS)[:zb0002]
 			} else {
-				z.WARNINGS = make([]interface{}, zb0002)
+				z.WARNINGS = make([]string, zb0002)
 			}
 			for za0001 := range z.WARNINGS {
-				z.WARNINGS[za0001], err = dc.ReadIntf()
+				z.WARNINGS[za0001], err = dc.ReadString()
 				if err != nil {
 					err = msgp.WrapError(err, "WARNINGS", za0001)
 					return
@@ -86,7 +86,7 @@ func (z *Response) EncodeMsg(en *msgp.Writer) (err error) {
 	if err != nil {
 		return
 	}
-	err = en.WriteIntf(z.REID)
+	err = z.REID.EncodeMsg(en)
 	if err != nil {
 		err = msgp.WrapError(err, "REID")
 		return
@@ -116,7 +116,7 @@ func (z *Response) EncodeMsg(en *msgp.Writer) (err error) {
 	if err != nil {
 		return
 	}
-	err = en.WriteIntf(z.PAYL)
+	err = z.PAYL.EncodeMsg(en)
 	if err != nil {
 		err = msgp.WrapError(err, "PAYL")
 		return
@@ -132,7 +132,7 @@ func (z *Response) EncodeMsg(en *msgp.Writer) (err error) {
 		return
 	}
 	for za0001 := range z.WARNINGS {
-		err = en.WriteIntf(z.WARNINGS[za0001])
+		err = en.WriteString(z.WARNINGS[za0001])
 		if err != nil {
 			err = msgp.WrapError(err, "WARNINGS", za0001)
 			return
@@ -147,7 +147,7 @@ func (z *Response) MarshalMsg(b []byte) (o []byte, err error) {
 	// map header, size 5
 	// string "REID"
 	o = append(o, 0x85, 0xa4, 0x52, 0x45, 0x49, 0x44)
-	o, err = msgp.AppendIntf(o, z.REID)
+	o, err = z.REID.MarshalMsg(o)
 	if err != nil {
 		err = msgp.WrapError(err, "REID")
 		return
@@ -160,7 +160,7 @@ func (z *Response) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.AppendString(o, z.RESPONSE)
 	// string "PAYL"
 	o = append(o, 0xa4, 0x50, 0x41, 0x59, 0x4c)
-	o, err = msgp.AppendIntf(o, z.PAYL)
+	o, err = z.PAYL.MarshalMsg(o)
 	if err != nil {
 		err = msgp.WrapError(err, "PAYL")
 		return
@@ -169,11 +169,7 @@ func (z *Response) MarshalMsg(b []byte) (o []byte, err error) {
 	o = append(o, 0xa8, 0x57, 0x41, 0x52, 0x4e, 0x49, 0x4e, 0x47, 0x53)
 	o = msgp.AppendArrayHeader(o, uint32(len(z.WARNINGS)))
 	for za0001 := range z.WARNINGS {
-		o, err = msgp.AppendIntf(o, z.WARNINGS[za0001])
-		if err != nil {
-			err = msgp.WrapError(err, "WARNINGS", za0001)
-			return
-		}
+		o = msgp.AppendString(o, z.WARNINGS[za0001])
 	}
 	return
 }
@@ -197,7 +193,7 @@ func (z *Response) UnmarshalMsg(bts []byte) (o []byte, err error) {
 		}
 		switch msgp.UnsafeString(field) {
 		case "REID":
-			z.REID, bts, err = msgp.ReadIntfBytes(bts)
+			bts, err = z.REID.UnmarshalMsg(bts)
 			if err != nil {
 				err = msgp.WrapError(err, "REID")
 				return
@@ -215,7 +211,7 @@ func (z *Response) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				return
 			}
 		case "PAYL":
-			z.PAYL, bts, err = msgp.ReadIntfBytes(bts)
+			bts, err = z.PAYL.UnmarshalMsg(bts)
 			if err != nil {
 				err = msgp.WrapError(err, "PAYL")
 				return
@@ -230,10 +226,10 @@ func (z *Response) UnmarshalMsg(bts []byte) (o []byte, err error) {
 			if cap(z.WARNINGS) >= int(zb0002) {
 				z.WARNINGS = (z.WARNINGS)[:zb0002]
 			} else {
-				z.WARNINGS = make([]interface{}, zb0002)
+				z.WARNINGS = make([]string, zb0002)
 			}
 			for za0001 := range z.WARNINGS {
-				z.WARNINGS[za0001], bts, err = msgp.ReadIntfBytes(bts)
+				z.WARNINGS[za0001], bts, err = msgp.ReadStringBytes(bts)
 				if err != nil {
 					err = msgp.WrapError(err, "WARNINGS", za0001)
 					return
@@ -253,9 +249,9 @@ func (z *Response) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *Response) Msgsize() (s int) {
-	s = 1 + 5 + msgp.GuessSize(z.REID) + 5 + msgp.IntSize + 9 + msgp.StringPrefixSize + len(z.RESPONSE) + 5 + msgp.GuessSize(z.PAYL) + 9 + msgp.ArrayHeaderSize
+	s = 1 + 5 + z.REID.Msgsize() + 5 + msgp.IntSize + 9 + msgp.StringPrefixSize + len(z.RESPONSE) + 5 + z.PAYL.Msgsize() + 9 + msgp.ArrayHeaderSize
 	for za0001 := range z.WARNINGS {
-		s += msgp.GuessSize(z.WARNINGS[za0001])
+		s += msgp.StringPrefixSize + len(z.WARNINGS[za0001])
 	}
 	return
 }
