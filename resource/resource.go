@@ -7,6 +7,8 @@ type Resource interface {
 	Get() (interface{}, Response)
 	Link(Resource) Response
 	UnLink(Resource) Response
+	GetLinks() ([][]string, Response)
+	Path() []string
 	Close() Response
 }
 

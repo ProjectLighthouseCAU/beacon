@@ -122,6 +122,10 @@ Lists the directory tree starting from the given path (must be a directory)
 - an empty path lists the whole tree from the root directory
 - requires READ permission
 
+##### LINKS
+Lists the links of a single resource, if PATH is specified and is a resource.
+Lists all links, if PATH is empty [].
+
 ##### GET
 Returns the current content of the resource at the path inside the response payload
 - requires READ permission

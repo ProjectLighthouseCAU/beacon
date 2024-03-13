@@ -155,6 +155,17 @@ func (r *brokerless) UnLink(otherResource resource.Resource) resource.Response {
 	return resource.Response{Code: 200, Err: nil}
 }
 
+func (r *brokerless) GetLinks() ([][]string, resource.Response) {
+	var links [][]string
+	for res := range r.links {
+		links = append(links, res.path)
+	}
+	return links, resource.Response{Code: 200, Err: nil}
+}
+func (r *brokerless) Path() []string {
+	return r.path
+}
+
 // checks whether a resource links to another resource (using depth first search)
 func (r *brokerless) linksTo(other *brokerless) bool {
 	if other == r {

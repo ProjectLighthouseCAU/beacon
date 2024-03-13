@@ -218,7 +218,7 @@ func (r *broker) Stream() (chan interface{}, resource.Response) {
 	return stream, <-respChan
 }
 
-// TODO: change interface sucht that this method can be used
+// TODO: change interface such that this method can be used
 func (r *broker) StreamWithGuaranteedDelivery() (chan interface{}, resource.Response) {
 	streamIn, streamOut := makeInfinite()
 	respChan := make(chan resource.Response)
@@ -266,6 +266,17 @@ func (r *broker) UnLink(other resource.Resource) resource.Response {
 	defer close(respChan)
 	r.control <- controlMsg{Type: UNLINK, Content: other, ResponseChan: respChan}
 	return <-respChan
+}
+
+func (r *broker) GetLinks() ([][]string, resource.Response) {
+	// broker links-map contains resources that link to this resource
+	// brokerless has to be the other way around
+	// TODO: rewrite broker links to be the same as brokerless
+	return [][]string{}, resource.Response{Code: 501, Err: errors.New("GetLinks not implemented for broker based implementation")}
+}
+
+func (r *broker) Path() []string {
+	return r.path
 }
 
 // checks whether a given resource links to this resource (using depth first search)

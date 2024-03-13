@@ -146,6 +146,62 @@ func (handler *Handler) HandleRequest(client *types.Client, request *types.Reque
 		response.Rnum(http.StatusOK).Payload(payl).Build()
 		client.Send(response)
 		return
+
+	case "LINKS":
+		// TODO: show all links in a directory instead of only one or all
+		if len(request.PATH) == 0 { // return links of all resources
+			type linkEntry struct {
+				Path  []string
+				Links [][]string
+			}
+			var linkList []linkEntry
+			err := handler.directory.ForEach(func(res resource.Resource) (bool, error) {
+				links, resp := res.GetLinks()
+				if resp.Err != nil {
+					response.Rnum(resp.Code).Warning(resp.Err.Error()).Build()
+					client.Send(response)
+					return false, resp.Err
+				}
+				if len(links) > 0 {
+					linkList = append(linkList, linkEntry{Path: res.Path(), Links: links})
+				}
+				return true, nil
+			})
+			if err != nil { // already sent response
+				return
+			}
+			log.Printf("%+v\n", linkList)
+			payl, err := msgpack.Marshal(linkList)
+			if err != nil {
+				response.Warning(err.Error()).Rnum(http.StatusInternalServerError).Build()
+				client.Send(response)
+				return
+			}
+			response.Rnum(http.StatusOK).Payload(payl).Build()
+			client.Send(response)
+			return
+		} else { // return links of single resource
+			res, err := handler.directory.GetResource(request.PATH)
+			if err != nil {
+				response.Rnum(http.StatusNotFound).Warning(err.Error())
+				break
+			}
+			links, resp := res.GetLinks()
+			if resp.Err != nil {
+				response.Rnum(resp.Code).Warning(resp.Err.Error()).Build()
+				client.Send(response)
+				return
+			}
+			payl, err := msgpack.Marshal(links)
+			if err != nil {
+				response.Warning(err.Error()).Rnum(http.StatusInternalServerError).Build()
+				client.Send(response)
+				return
+			}
+			response.Rnum(http.StatusOK).Payload(payl).Build()
+			client.Send(response)
+			return
+		}
 	}
 
 	resource, err := handler.directory.GetResource(request.PATH)
