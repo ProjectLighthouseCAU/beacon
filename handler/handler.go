@@ -118,6 +118,9 @@ func (handler *Handler) HandleRequest(client *types.Client, request *types.Reque
 			client.Send(response)
 			return
 		}
+		response.Rnum(http.StatusOK).Build()
+		client.Send(response)
+		return
 	case "DELETE":
 		err := handler.directory.Delete(request.PATH)
 		if err != nil {
