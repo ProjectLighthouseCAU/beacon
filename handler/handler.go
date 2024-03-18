@@ -118,7 +118,7 @@ func (handler *Handler) HandleRequest(client *types.Client, request *types.Reque
 			client.Send(response)
 			return
 		}
-		response.Rnum(http.StatusOK).Build()
+		response.Rnum(http.StatusCreated).Build()
 		client.Send(response)
 		return
 	case "DELETE":
