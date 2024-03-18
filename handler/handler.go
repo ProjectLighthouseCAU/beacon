@@ -111,6 +111,10 @@ func (handler *Handler) HandleRequest(client *types.Client, request *types.Reque
 			client.Send(response)
 			return
 		}
+		response.Rnum(http.StatusCreated).Build()
+		client.Send(response)
+		return
+
 	case "MKDIR":
 		err := handler.directory.CreateDirectory(request.PATH)
 		if err != nil {
@@ -121,6 +125,7 @@ func (handler *Handler) HandleRequest(client *types.Client, request *types.Reque
 		response.Rnum(http.StatusCreated).Build()
 		client.Send(response)
 		return
+
 	case "DELETE":
 		err := handler.directory.Delete(request.PATH)
 		if err != nil {
