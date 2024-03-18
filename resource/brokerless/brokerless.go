@@ -7,7 +7,6 @@ import (
 
 	"github.com/ProjectLighthouseCAU/beacon/config"
 	"github.com/ProjectLighthouseCAU/beacon/resource"
-	"github.com/tinylib/msgp/msgp"
 )
 
 type brokerless struct {
@@ -36,7 +35,7 @@ func Create(path []string) resource.Resource {
 		streamsLock: sync.Mutex{},
 		links:       make(map[*brokerless]struct{}),
 		linksLock:   sync.Mutex{},
-		value:       msgp.Raw{},
+		value:       nil,
 		valueLock:   sync.RWMutex{},
 	}
 }
