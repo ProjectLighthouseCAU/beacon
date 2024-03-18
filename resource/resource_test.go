@@ -7,6 +7,7 @@ import (
 
 	// TODO: test all implementations of a resource
 	resource "github.com/ProjectLighthouseCAU/beacon/resource/brokerless" // <- change resource implementation here
+	"github.com/tinylib/msgp/msgp"
 )
 
 const maxLatency time.Duration = 1 * time.Millisecond
@@ -17,8 +18,9 @@ func TestGet(t *testing.T) {
 	if resp.Err != nil {
 		t.Fatalf("Get failed with code %d: %s", resp.Code, resp.Err.Error())
 	}
-	if v != nil {
-		t.Fatalf("Expected nil, got %v", v)
+	_, ok := v.(msgp.Raw)
+	if !ok {
+		t.Fatalf("Expected msgp.Raw, got %v of type %T", v, v)
 	}
 	testResource.Close()
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/ProjectLighthouseCAU/beacon/config"
 	"github.com/ProjectLighthouseCAU/beacon/resource"
+	"github.com/tinylib/msgp/msgp"
 )
 
 type controlMsgType uint16
@@ -74,7 +75,7 @@ func Create(path []string) resource.Resource {
 		streams: make(map[chan interface{}]bool),
 		links:   make(map[*broker]chan interface{}),
 
-		value:     nil,
+		value:     msgp.Raw{},
 		valueLock: sync.RWMutex{},
 	}
 	go r.broker()
