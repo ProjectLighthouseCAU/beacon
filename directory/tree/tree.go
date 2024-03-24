@@ -113,6 +113,10 @@ func (d *directory) CreateDirectory(path []string) error {
 	if len(path) == 0 {
 		return errors.New("cannot create root directory")
 	}
+	n, _ := d.getDirectory(path, false)
+	if n != nil {
+		return errors.New("directory " + strings.Join(path, "/") + " already exists")
+	}
 	_, err := d.getDirectory(path, true) // create missing directories in path
 	if err != nil {
 		return err
