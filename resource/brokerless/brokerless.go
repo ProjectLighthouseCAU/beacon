@@ -3,6 +3,7 @@ package brokerless
 import (
 	"errors"
 	"log"
+	"strings"
 	"sync"
 
 	"github.com/ProjectLighthouseCAU/beacon/config"
@@ -79,7 +80,7 @@ func (r *brokerless) Put(value interface{}) resource.Response {
 		case stream <- value:
 		default:
 			// skip stream if channel is full
-			log.Println("[Warning] A stream channel is full and was skipped by the brokerless")
+			log.Printf("[Warning] A stream channel of %s is full and was skipped by the brokerless\n", strings.Join(r.path, "/"))
 		}
 	}
 	for link := range r.links {
