@@ -90,7 +90,7 @@ func (handler *Handler) HandleRequest(client *types.Client, request *types.Reque
 		}
 		resource, err := handler.directory.GetResource(request.PATH)
 		if err != nil { // other error during creation
-			response.Warning(err.Error()).Rnum(http.StatusBadRequest).Build()
+			response.Warning(err.Error()).Rnum(http.StatusNotFound).Build()
 			client.Send(response)
 			return
 		}
@@ -129,7 +129,7 @@ func (handler *Handler) HandleRequest(client *types.Client, request *types.Reque
 	case "DELETE":
 		err := handler.directory.Delete(request.PATH)
 		if err != nil {
-			response.Warning(err.Error()).Rnum(http.StatusBadRequest).Build()
+			response.Warning(err.Error()).Rnum(http.StatusNotFound).Build()
 			client.Send(response)
 			return
 		}
@@ -158,7 +158,7 @@ func (handler *Handler) HandleRequest(client *types.Client, request *types.Reque
 
 	resource, err := handler.directory.GetResource(request.PATH)
 	if err != nil { // resource not found
-		response.Warning(err.Error()).Rnum(http.StatusBadRequest).Build()
+		response.Warning(err.Error()).Rnum(http.StatusNotFound).Build()
 		client.Send(response)
 		return
 	}
@@ -236,7 +236,7 @@ func (handler *Handler) HandleRequest(client *types.Client, request *types.Reque
 		}
 		source, err := handler.directory.GetResource(sourcePath)
 		if err != nil {
-			response.Rnum(http.StatusBadRequest).Warning(err.Error())
+			response.Rnum(http.StatusNotFound).Warning(err.Error())
 			break
 		}
 		resp := resource.Link(source)
@@ -253,7 +253,7 @@ func (handler *Handler) HandleRequest(client *types.Client, request *types.Reque
 		}
 		source, err := handler.directory.GetResource(sourcePath)
 		if err != nil {
-			response.Rnum(http.StatusBadRequest).Warning(err.Error())
+			response.Rnum(http.StatusNotFound).Warning(err.Error())
 			break
 		}
 		resp := resource.UnLink(source)
