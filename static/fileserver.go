@@ -17,7 +17,7 @@ var (
 
 func StartFileserver() {
 	// serve static testing site (only works with websocket endpoint enabled)
-	log.Println("Serving static files: " + "http://localhost:" + strconv.Itoa(webinterfacePort) + webinterfaceRoute)
+	log.Println("Serving static files: " + "http://" + webinterfaceHost + ":" + strconv.Itoa(webinterfacePort) + webinterfaceRoute)
 	mux := http.NewServeMux()
 	mux.Handle(webinterfaceRoute, http.FileServer(http.Dir("./static")))
 	serv := &http.Server{

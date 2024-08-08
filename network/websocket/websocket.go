@@ -79,7 +79,7 @@ func CreateEndpoint(host string, port int, route string, handlers []network.Requ
 	if tlsEnabled {
 		url = url + "s"
 	}
-	url = url + "://localhost:" + strconv.Itoa(port) + route
+	url = url + "://" + host + ":" + strconv.Itoa(port) + route
 	log.Printf("WebSocket Endpoint created: " + url)
 
 	return ep

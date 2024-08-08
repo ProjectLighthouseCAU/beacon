@@ -1,0 +1,55 @@
+version: "3.9"
+services:
+  beacon: # main lighthouse server (prev. model-server)
+    image: ghcr.io/projectlighthousecau/beacon:latest # make sure you are logged into ghcr.io docker registry
+    container_name: beacon
+    restart: always
+    # ports:
+      - "0.0.0.0:3000:3000" # WebSocket
+    #   - "127.0.0.1:9000:9000" # Webinterface
+    network_mode: "host" # needed to connect to legacy PostgreSQL listening on 127.0.0.1:5432 on host # TODO: remove when heimdall is in production
+    volumes:
+      - "./data/beacon/snapshot:/snapshot:Z"
+    environment:
+      - VERBOSE_LOGGING=false
+      - SNAPSHOT_PATH=/snapshot/beacon-snapshot
+      # WEBSOCKET
+      - WEBSOCKET_HOST=0.0.0.0
+      - WEBSOCKET_PORT=3000
+      - WEBSOCKET_ROUTE=/websocket
+      - WEBSOCKET_READ_BUFFER_SIZE=2048
+      - WEBSOCKET_WRITE_BUFFER_SIZE=2048
+      - WEBSOCKET_READ_LIMIT=2048
+      - WEBSOCKET_ENDPOINT_AUTHENTICATION=false
+
+      # RESOURCE
+      - RESOURCE_IMPL=brokerless
+      # - RESOURCE_PUT_CHANNEL_SIZE=1
+      - RESOURCE_STREAM_CHANNEL_SIZE=1
+      # - RESOURCE_CONTROL_CHANNEL_SIZE=1
+
+      # WEBINTERFACE
+      - WEBINTERFACE_HOST=127.0.0.1
+      - WEBINTERFACE_PORT=9000
+      - WEBINTERFACE_ROUTE=/
+
+      # AUTH (options: allow_all, legacy, hardcoded - see below)
+      - AUTH=allow_all
+      # Test auth users {"user1":"token1", "user2":"token2"}
+      # - >
+      #   USERS_CONFIG_JSON={
+      #     "Uhr":         "1234567890secret1234567890",
+      #     "Lighthouse":  "API-TOK_CKXz-mYlh-38Hb-9pWa-UvXI",
+      #     "Animation":   "API-TOK_sP1x-uBe4-9P2T-BQTQ-KJ5n",
+      #     "Nico":        "API-TOK_FkWZ-8H7P-ZUOG-UhE8-wb55"
+      #   }
+      # Test auth admins {"user1": true}
+      # - >
+      #   ADMINS_CONFIG_JSON={
+      #     "Nico": true
+      #   }
+      - DB_HOST=127.0.0.1
+      - DB_PORT=5432
+      - DB_USER=${LEGACY_DB_USER}
+      - DB_PASSWORD=${LEGACY_DB_PASSWORD}
+      - DB_NAME=${LEGACY_DB_NAME}
