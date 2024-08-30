@@ -336,11 +336,12 @@ func restore(d *directory, path []string, m map[string]interface{}) error {
 	for k, v := range m {
 		switch x := v.(type) {
 		case map[string]interface{}:
-			_, err := d.getDirectory(append(path, k), true)
+			p := append(path, k)
+			_, err := d.getDirectory(p, true)
 			if err != nil {
 				return err
 			}
-			err = restore(d, append(path, k), x)
+			err = restore(d, p, x)
 			if err != nil {
 				return err
 			}
