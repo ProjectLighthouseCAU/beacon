@@ -2,12 +2,12 @@ package legacy
 
 import (
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/ProjectLighthouseCAU/beacon/auth/hardcoded"
 	"github.com/ProjectLighthouseCAU/beacon/config"
 	"github.com/ProjectLighthouseCAU/beacon/directory"
+	"github.com/ProjectLighthouseCAU/beacon/util"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"golang.org/x/exp/maps"
@@ -28,7 +28,7 @@ func New(dir directory.Directory) *hardcoded.AllowCustom {
 		Users:  make(map[string]string),
 		Admins: make(map[string]bool),
 	}
-	go runEvery(config.GetDuration("DB_QUERY_PERIOD", 1*time.Second), func() {
+	go util.RunEvery(config.GetDuration("DB_QUERY_PERIOD", 1*time.Second), func() {
 		queryDb(db, &a, dir)
 	})
 	return &a
@@ -47,7 +47,7 @@ const (
 	userQuery = `SELECT username, token
 FROM webmultiplexer.api_tokens
 WHERE permanent
-OR issued >= LOCALTIMESTAMP - INTERVAL '2 day 30 minutes'`
+OR issued >= LOCALTIMESTAMP - INTERVAL '2 days'`
 
 	adminQuery = `SELECT webmultiplexer.users.username
 FROM webmultiplexer.user_groups
@@ -56,13 +56,6 @@ ON user_groups.username = users.username
 WHERE users.is_admin
 OR user_groups.groupname = 'admin'`
 )
-
-func runEvery(t time.Duration, f func()) {
-	ticker := time.NewTicker(t)
-	for range ticker.C {
-		f()
-	}
-}
 
 func queryDb(db *sqlx.DB, a *hardcoded.AllowCustom, dir directory.Directory) {
 	users := []User{}
@@ -81,9 +74,9 @@ func queryDb(db *sqlx.DB, a *hardcoded.AllowCustom, dir directory.Directory) {
 	defer a.Lock.Unlock()
 
 	// get difference of user map and query result
-	addedUsers, removedUsers := diffSlices[string](
+	addedUsers, removedUsers := util.DiffSlices(
 		maps.Keys(a.Users),
-		mapSlice(func(s User) string { return s.Username }, users))
+		util.MapSlice(func(s User) string { return s.Username }, users))
 
 	// update user map
 	for _, user := range users {
@@ -101,7 +94,7 @@ func queryDb(db *sqlx.DB, a *hardcoded.AllowCustom, dir directory.Directory) {
 		delete(a.Users, removedUser)
 	}
 	// add new admins
-	addedAdmins, removedAdmins := diffSlices[string](maps.Keys(a.Admins), admins)
+	addedAdmins, removedAdmins := util.DiffSlices(maps.Keys(a.Admins), admins)
 	for _, admin := range addedAdmins {
 		a.Admins[admin] = true
 	}
@@ -109,25 +102,4 @@ func queryDb(db *sqlx.DB, a *hardcoded.AllowCustom, dir directory.Directory) {
 	for _, admin := range removedAdmins {
 		delete(a.Admins, admin)
 	}
-}
-
-func diffSlices[T comparable](prev []T, next []T) (added, removed []T) {
-	for _, p := range prev {
-		if !slices.Contains[[]T](next, p) {
-			removed = append(removed, p)
-		}
-	}
-	for _, n := range next {
-		if !slices.Contains[[]T](prev, n) {
-			added = append(added, n)
-		}
-	}
-	return
-}
-
-func mapSlice[T, U any](mapFunc func(T) U, slice []T) (result []U) {
-	for _, elem := range slice {
-		result = append(result, mapFunc(elem))
-	}
-	return
 }

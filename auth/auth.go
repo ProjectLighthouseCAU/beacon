@@ -24,13 +24,17 @@ func IsReadOperation(req *types.Request) bool {
 
 // --- Combined Authorization Handlers ---
 
-type AndAuth struct {
+type andAuth struct {
 	auth1, auth2 Auth
 }
 
-var _ Auth = (*AndAuth)(nil)
+var _ Auth = (*andAuth)(nil)
 
-func (a *AndAuth) IsAuthorized(c *types.Client, r *types.Request) (bool, int) {
+func NewAndAuth(auth1 Auth, auth2 Auth) *andAuth {
+	return &andAuth{auth1, auth2}
+}
+
+func (a *andAuth) IsAuthorized(c *types.Client, r *types.Request) (bool, int) {
 	a1, _ := a.auth1.IsAuthorized(c, r)
 	a2, _ := a.auth2.IsAuthorized(c, r)
 	authorized := a1 && a2
@@ -43,21 +47,25 @@ func (a *AndAuth) IsAuthorized(c *types.Client, r *types.Request) (bool, int) {
 	return authorized, code
 }
 
-type OrAuth struct {
+type orAuth struct {
 	auth1, auth2 Auth
 }
 
-var _ Auth = (*OrAuth)(nil)
+var _ Auth = (*orAuth)(nil)
 
-func (a *OrAuth) IsAuthorized(c *types.Client, r *types.Request) (bool, int) {
+func NewOrAuth(auth1 Auth, auth2 Auth) *orAuth {
+	return &orAuth{auth1, auth2}
+}
+
+func (a *orAuth) IsAuthorized(c *types.Client, r *types.Request) (bool, int) {
 	a1, _ := a.auth1.IsAuthorized(c, r)
 	a2, _ := a.auth2.IsAuthorized(c, r)
 	authorized := a1 || a2
 	var code int
 	if authorized {
-		code = 200
+		code = http.StatusOK
 	} else {
-		code = 401
+		code = http.StatusUnauthorized
 	}
 	return authorized, code
 }
@@ -65,21 +73,29 @@ func (a *OrAuth) IsAuthorized(c *types.Client, r *types.Request) (bool, int) {
 // --- Simple Authorization (AllowAll and AllowNone) ---
 
 // AllowAll allows all requests
-type AllowAll struct{}
+type allowAll struct{}
 
-var _ Auth = (*AllowAll)(nil)
+var _ Auth = (*allowAll)(nil)
+
+func AllowAll() *allowAll {
+	return &allowAll{}
+}
 
 // IsAuthorized determines whether a request is authorized
-func (a *AllowAll) IsAuthorized(c *types.Client, req *types.Request) (bool, int) {
+func (a *allowAll) IsAuthorized(c *types.Client, req *types.Request) (bool, int) {
 	return true, http.StatusOK
 }
 
 // AllowNone allows no requests
-type AllowNone struct{}
+type allowNone struct{}
 
-var _ Auth = (*AllowNone)(nil)
+var _ Auth = (*allowNone)(nil)
+
+func AllowNone() *allowNone {
+	return &allowNone{}
+}
 
 // IsAuthorized determines whether a request is authorized
-func (a *AllowNone) IsAuthorized(c *types.Client, req *types.Request) (bool, int) {
+func (a *allowNone) IsAuthorized(c *types.Client, req *types.Request) (bool, int) {
 	return false, http.StatusUnauthorized
 }

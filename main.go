@@ -13,6 +13,7 @@ import (
 
 	"github.com/ProjectLighthouseCAU/beacon/auth"
 	"github.com/ProjectLighthouseCAU/beacon/auth/hardcoded"
+	"github.com/ProjectLighthouseCAU/beacon/auth/heimdall"
 	"github.com/ProjectLighthouseCAU/beacon/auth/legacy"
 	"github.com/ProjectLighthouseCAU/beacon/cli"
 	"github.com/ProjectLighthouseCAU/beacon/directory/tree"
@@ -29,10 +30,9 @@ import (
 )
 
 var (
-	websocketHost  = config.GetString("WEBSOCKET_HOST", "127.0.0.1")
-	websocketPort  = config.GetInt("WEBSOCKET_PORT", 3000)
-	websocketRoute = config.GetString("WEBSOCKET_ROUTE", "/websocket")
-	// tcpPort        = config.GetInt("TCP_PORT", 3001)
+	websocketHost    = config.GetString("WEBSOCKET_HOST", "127.0.0.1")
+	websocketPort    = config.GetInt("WEBSOCKET_PORT", 3000)
+	websocketRoute   = config.GetString("WEBSOCKET_ROUTE", "/websocket")
 	snapshotPath     = config.GetString("SNAPSHOT_PATH", "./beacon-snapshot")
 	snapshotInterval = config.GetDuration("SNAPSHOT_INTERVAL", 1*time.Second)
 )
@@ -92,10 +92,12 @@ func main() {
 	case "legacy":
 		authImpl = legacy.New(directory)
 	case "allow_all":
-		authImpl = &auth.AllowAll{}
+		authImpl = auth.AllowAll()
+	case "heimdall":
+		authImpl = heimdall.New(directory)
 	default:
 		log.Println("AUTH environment variable not specified, denying all access by default!")
-		authImpl = &auth.AllowNone{}
+		authImpl = auth.AllowNone()
 	}
 
 	handler := handler.New(directory, authImpl)

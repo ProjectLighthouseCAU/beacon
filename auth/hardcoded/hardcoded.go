@@ -1,10 +1,14 @@
 package hardcoded
 
 import (
+	"encoding/json"
+	"fmt"
+	"log"
 	"net/http"
 	"sync"
 
 	"github.com/ProjectLighthouseCAU/beacon/auth"
+	"github.com/ProjectLighthouseCAU/beacon/config"
 	"github.com/ProjectLighthouseCAU/beacon/types"
 )
 
@@ -16,6 +20,33 @@ type AllowCustom struct {
 }
 
 var _ auth.Auth = (*AllowCustom)(nil)
+
+func New() *AllowCustom {
+	return &AllowCustom{
+		Users:  parseUserJson(),
+		Admins: parseAdminJson(),
+	}
+}
+
+func parseUserJson() (users map[string]string) {
+	err := json.Unmarshal([]byte(config.GetString("USERS_CONFIG_JSON", "{}")), &users)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	fmt.Println("Users: ", config.GetString("USERS_CONFIG_JSON", "{}"), users)
+	return
+}
+
+func parseAdminJson() (admins map[string]bool) {
+	err := json.Unmarshal([]byte(config.GetString("ADMINS_CONFIG_JSON", "{}")), &admins)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	fmt.Println("Admins: ", config.GetString("ADMINS_CONFIG_JSON", "{}"), admins)
+	return
+}
 
 // IsAuthorized determines whether a request is authorized
 func (a *AllowCustom) IsAuthorized(c *types.Client, req *types.Request) (bool, int) {
