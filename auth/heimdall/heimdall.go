@@ -141,6 +141,7 @@ func (a *HeimdallAuth) IsAuthorized(client *types.Client, request *types.Request
 		return false, http.StatusUnauthorized
 	}
 	a.lock.RLock()
+	defer a.lock.RUnlock()
 	authData, ok := a.authData[username]
 	if !ok {
 		return false, http.StatusUnauthorized
@@ -151,7 +152,6 @@ func (a *HeimdallAuth) IsAuthorized(client *types.Client, request *types.Request
 	if slices.Contains(authData.Roles, config.GetString("HEIMDALL_ADMIN_ROLENAME", "admin")) {
 		return true, http.StatusOK
 	}
-	a.lock.RUnlock()
 	// TODO: fine grained permission using casbin
 	if request.PATH[0] == "user" && request.PATH[2] == "model" && len(request.PATH) == 3 {
 		if request.PATH[1] == username {
