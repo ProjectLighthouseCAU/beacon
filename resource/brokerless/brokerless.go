@@ -80,7 +80,9 @@ func (r *brokerless) Put(value interface{}) resource.Response {
 		case stream <- value:
 		default:
 			// skip stream if channel is full
-			log.Printf("[Warning] A stream channel of %s is full and was skipped by the brokerless\n", strings.Join(r.path, "/"))
+			if config.GetBool("VERBOSE_LOGGING", false) {
+				log.Printf("[Warning] A stream channel of %s is full and was skipped by the brokerless\n", strings.Join(r.path, "/"))
+			}
 		}
 	}
 	for link := range r.links {
