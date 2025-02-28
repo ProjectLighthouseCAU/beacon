@@ -101,9 +101,8 @@ func main() {
 	}
 
 	handler := handler.New(directory, authImpl)
-	handlers := []network.RequestHandler{handler}
 
-	websocketEndpoint := websocket.CreateEndpoint(websocketHost, websocketPort, websocketRoute, handlers)
+	websocketEndpoint := websocket.CreateEndpoint(websocketHost, websocketPort, websocketRoute, handler)
 	endpoints := []network.Endpoint{websocketEndpoint}
 
 	static.StartFileserver()
@@ -132,9 +131,9 @@ func main() {
 	for _, ep := range endpoints {
 		ep.Close()
 	}
-	for _, h := range handlers {
-		h.Close()
-	}
+
+	handler.Close()
+
 	log.Println("Closed all endpoints and handlers")
 	snapshotter.StopAndWait()
 	log.Println("Server stopped")
