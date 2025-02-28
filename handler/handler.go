@@ -8,7 +8,6 @@ import (
 	"github.com/ProjectLighthouseCAU/beacon/auth"
 	"github.com/ProjectLighthouseCAU/beacon/config"
 	"github.com/ProjectLighthouseCAU/beacon/directory"
-	"github.com/ProjectLighthouseCAU/beacon/network"
 	"github.com/ProjectLighthouseCAU/beacon/resource"
 	"github.com/ProjectLighthouseCAU/beacon/types"
 )
@@ -21,9 +20,6 @@ type Handler struct {
 	directory directory.Directory
 	auth      auth.Auth
 }
-
-// Handler implements network.RequestHandler
-var _ network.RequestHandler = (*Handler)(nil)
 
 func New(dir directory.Directory, a auth.Auth) *Handler {
 	if dir == nil {
@@ -55,7 +51,7 @@ func (handler *Handler) Disconnect(client *types.Client) {
 	})
 }
 
-func (handler *Handler) HandleRequest(client *types.Client, request *types.Request) {
+func (handler *Handler) HandleRequest(client *types.Client, request *types.Request) bool {
 	defer func() { // recover from any panic while handling the request to prevent complete server crash
 		if r := recover(); r != nil {
 			log.Println("Recovering from panic in handler:", r)
@@ -70,7 +66,7 @@ func (handler *Handler) HandleRequest(client *types.Client, request *types.Reque
 	if ok, code := handler.auth.IsAuthorized(client, request); !ok {
 		response := types.NewResponse().Reid(request.REID).Rnum(code).Build()
 		client.Send(response)
-		return
+		return false
 	}
 
 	var response *types.Response
@@ -99,10 +95,15 @@ func (handler *Handler) HandleRequest(client *types.Client, request *types.Reque
 		response = handler.link(request)
 	case "UNLINK":
 		response = handler.unlink(request)
+	default:
+		response = types.NewResponse().Reid(request.REID).Rnum(http.StatusMethodNotAllowed).Build()
+		client.Send(response)
+		return false
 	}
 
 	if verbose {
 		fmt.Printf("Response: %+v", response)
 	}
 	client.Send(response)
+	return true
 }

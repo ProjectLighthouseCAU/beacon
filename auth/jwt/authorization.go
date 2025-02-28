@@ -13,10 +13,6 @@ type JWTAuth struct{}
 var _ auth.Auth = (*JWTAuth)(nil)
 
 func (a *JWTAuth) IsAuthorized(c *types.Client, r *types.Request) (bool, int) {
-	if c.Claims == nil {
-		// TODO: try to parse the jwt again (in case endpoint authentication is disabled)
-		return false, http.StatusUnauthorized
-	}
 	// TODO: verify request operation and path by lookup in jwt claims
 	// TODO: or make request to auth-service to check the access control rules
 	switch r.VERB {
@@ -32,5 +28,5 @@ func (a *JWTAuth) IsAuthorized(c *types.Client, r *types.Request) (bool, int) {
 		// TODO: consider revoked permission -> links still remain!
 	}
 
-	return false, -1
+	return false, http.StatusNotImplemented
 }

@@ -5,7 +5,6 @@ package types
 type Client struct {
 	Send    func(*Response) error
 	streams []stream
-	Claims  map[string]interface{}
 }
 
 type stream struct {
@@ -13,11 +12,10 @@ type stream struct {
 	channel chan interface{}
 }
 
-func NewClient(send func(*Response) error, claims map[string]interface{}) *Client {
+func NewClient(send func(*Response) error) *Client {
 	return &Client{
 		Send:    send,
 		streams: make([]stream, 0),
-		Claims:  claims,
 	}
 }
 

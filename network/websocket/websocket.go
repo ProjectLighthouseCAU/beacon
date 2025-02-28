@@ -4,12 +4,11 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
-	"github.com/ProjectLighthouseCAU/beacon/auth/jwt"
 	"github.com/ProjectLighthouseCAU/beacon/config"
+	"github.com/ProjectLighthouseCAU/beacon/handler"
 	"github.com/ProjectLighthouseCAU/beacon/network"
 	"github.com/ProjectLighthouseCAU/beacon/types"
 
@@ -17,12 +16,11 @@ import (
 )
 
 var (
-	readBufferSize     = config.GetInt("WEBSOCKET_READ_BUFFER_SIZE", 0)
-	writeBufferSize    = config.GetInt("WEBSOCKET_WRITE_BUFFER_SIZE", 0)
-	readLimit          = config.GetInt("WEBSOCKET_READ_LIMIT", 2048)
-	certificatePath    = config.GetString("TLS_CERT_PATH", "")
-	privateKeyPath     = config.GetString("TLS_PRIVATE_KEY_PATH", "")
-	enableEndpointAuth = config.GetBool("WEBSOCKET_ENDPOINT_AUTHENTICATION", false) // TODO: default to true after testing
+	readBufferSize  = config.GetInt("WEBSOCKET_READ_BUFFER_SIZE", 0)
+	writeBufferSize = config.GetInt("WEBSOCKET_WRITE_BUFFER_SIZE", 0)
+	readLimit       = config.GetInt("WEBSOCKET_READ_LIMIT", 2048)
+	certificatePath = config.GetString("TLS_CERT_PATH", "")
+	privateKeyPath  = config.GetString("TLS_PRIVATE_KEY_PATH", "")
 )
 
 // Endpoint defines a websocket endpoint
@@ -35,14 +33,14 @@ type Endpoint struct { // extends BaseEndpoint implements network.Endpoint (remi
 var _ network.Endpoint = (*Endpoint)(nil) // implements
 
 // CreateEndpoint initiates the websocket endpoint (blocking call)
-func CreateEndpoint(host string, port int, route string, handlers []network.RequestHandler) *Endpoint {
+func CreateEndpoint(host string, port int, route string, handler *handler.Handler) *Endpoint {
 
 	defer func() { // recover from any panic during initialization and retry
 		if r := recover(); r != nil {
 			log.Println("Error while creating websocket endpoint: ", r)
 			log.Println("Retrying in 3 seconds...")
 			time.Sleep(3 * time.Second)
-			CreateEndpoint(host, port, route, handlers)
+			CreateEndpoint(host, port, route, handler)
 		}
 	}()
 
@@ -50,8 +48,8 @@ func CreateEndpoint(host string, port int, route string, handlers []network.Requ
 
 	ep := &Endpoint{
 		BaseEndpoint: network.BaseEndpoint{
-			Type:     network.Websocket,
-			Handlers: handlers,
+			Type:    network.Websocket,
+			Handler: handler,
 		},
 		httpServer: &http.Server{Addr: host + ":" + strconv.Itoa(port)},
 		upgrader: websocket.Upgrader{
@@ -102,23 +100,15 @@ func getWebsocketHandler(ep *Endpoint) http.HandlerFunc {
 			}
 		}()
 
-		log.Printf("[%s] Incoming Connection: %+v\n", time.Now().Format(time.UnixDate), *request)
-
-		claims := make(map[string]interface{})
-		if enableEndpointAuth {
-			authHeader := request.Header.Get("Authorization")
-			if strings.TrimSpace(authHeader) == "" {
-				responseWriter.WriteHeader(401)
-				return
-			}
-			jwtStr := strings.Split(authHeader, "Bearer ")[1]
-			var err error
-			claims, err = jwt.ValidateJWT(jwtStr)
-			if err != nil {
-				responseWriter.WriteHeader(401)
-				return
-			}
+		clientIp := request.Header.Get("X-Real-Ip")
+		if clientIp == "" {
+			clientIp = request.Header.Get("X-Forwarded-For")
 		}
+		if clientIp == "" {
+			clientIp = request.RemoteAddr
+		}
+
+		log.Printf("Incoming Connection from: %s\n", clientIp)
 
 		conn, err := ep.upgrader.Upgrade(responseWriter, request, nil)
 		if err != nil {
@@ -127,26 +117,27 @@ func getWebsocketHandler(ep *Endpoint) http.HandlerFunc {
 		}
 		conn.SetReadLimit(int64(readLimit)) // set the maximum message size -> closes connection if exceeded
 
-		client := types.NewClient(getSendHandle(conn), claims)
+		client := types.NewClient(getSendHandle(conn))
+
+		// TODO: move this function into the client struct (similar to send)
+		disconnectClient := func() {
+			ep.Handler.Disconnect(client)
+			conn.Close()
+			log.Println("Client disconnected: ", clientIp)
+		}
 
 		for {
 			messageType, payload, err := conn.ReadMessage()
 			if err != nil {
-				// if strings.Contains(err.Error(), "normal") {
-				// 	return
-				// }
-				for _, h := range ep.Handlers {
-					h.Disconnect(client)
-				}
-				log.Println(err)
-				conn.Close()
+				disconnectClient()
 				return
 			}
 
 			if messageType != websocket.BinaryMessage {
-				response := types.NewResponse().Warning("Non binary-type message received, use websocket binary-type instead")
+				response := types.NewResponse().Reid([]byte{0}).Rnum(http.StatusBadRequest).Warning("Non binary-type message received, use websocket binary-type instead").Build()
 				client.Send(response)
-				continue
+				disconnectClient()
+				return
 			}
 			request := types.Request{}
 			_, err = request.UnmarshalMsg(payload)
@@ -154,15 +145,16 @@ func getWebsocketHandler(ep *Endpoint) http.HandlerFunc {
 				log.Println(err)
 				response := types.NewResponse().Reid(request.REID).Rnum(http.StatusBadRequest).Warning("Could not deserialize request. Please make sure that you are using the Lighthouse-Protocol correctly").Build()
 				client.Send(response)
-				continue
+				disconnectClient()
+				return
 			}
-			if len(ep.Handlers) == 0 { // no handler registered -> wrong config or startup
-				response := types.NewResponse().Reid(request.REID).Rnum(http.StatusServiceUnavailable).Build()
-				client.Send(response)
-				continue
-			}
-			for _, h := range ep.Handlers {
-				h.HandleRequest(client, &request)
+
+			requestAuthorized := ep.Handler.HandleRequest(client, &request)
+
+			// TODO: only disconnect on 401 not 403!
+			if !requestAuthorized {
+				disconnectClient()
+				return
 			}
 		}
 	}
@@ -171,7 +163,7 @@ func getWebsocketHandler(ep *Endpoint) http.HandlerFunc {
 // This function wraps a reference to the websocket connection
 // and a mutex lock for synchronous access to that connection into a closure
 // and returns a function that takes a server.Response and writes it thread-safe to the websocket connection.
-func getSendHandle(connection *websocket.Conn /*, serializer serialization.Serializer*/) func(*types.Response) error {
+func getSendHandle(connection *websocket.Conn) func(*types.Response) error {
 
 	var lock = &sync.Mutex{}
 
