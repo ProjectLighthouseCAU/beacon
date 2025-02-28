@@ -121,10 +121,11 @@ func (a *HeimdallAuth) reload() error {
 	// create resource for added user
 	for _, addedUser := range addedUsers {
 		a.dir.CreateResource([]string{"user", addedUser, "model"})
+		a.dir.CreateResource([]string{"user", addedUser, "input"})
 	}
 	// delete resource for removed user
 	for _, removedUser := range removedUsers {
-		a.dir.Delete([]string{"user", removedUser})
+		// a.dir.Delete([]string{"user", removedUser}) // TODO: remove old resources (deleted users, not just expired API token)
 		delete(a.authData, removedUser)
 	}
 
@@ -153,7 +154,7 @@ func (a *HeimdallAuth) IsAuthorized(client *types.Client, request *types.Request
 		return true, http.StatusOK
 	}
 	// TODO: fine grained permission using casbin
-	if request.PATH[0] == "user" && request.PATH[2] == "model" && len(request.PATH) == 3 {
+	if request.PATH[0] == "user" && (request.PATH[2] == "model" || request.PATH[2] == "input") && len(request.PATH) == 3 {
 		if request.PATH[1] == username {
 			return true, http.StatusOK
 		}
