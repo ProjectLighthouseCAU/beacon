@@ -150,10 +150,16 @@ func (a *HeimdallAuth) IsAuthorized(client *types.Client, request *types.Request
 	if token != authData.Token {
 		return false, http.StatusUnauthorized
 	}
+
+	// admins can perform any action on any path
 	if slices.Contains(authData.Roles, config.GetString("HEIMDALL_ADMIN_ROLENAME", "admin")) {
 		return true, http.StatusOK
 	}
-	// TODO: fine grained permission using casbin
+
+	// TODO: fine grained access control using casbin
+
+	// allow users to read and write to /user/<own-username>/model and /user/<own-username>/input
+	// allow users to read /user/<other-username>/model and /user/<other-username>/input
 	if request.PATH[0] == "user" && (request.PATH[2] == "model" || request.PATH[2] == "input") && len(request.PATH) == 3 {
 		if request.PATH[1] == username {
 			return true, http.StatusOK
@@ -162,5 +168,10 @@ func (a *HeimdallAuth) IsAuthorized(client *types.Client, request *types.Request
 			return true, http.StatusOK
 		}
 	}
+	// allow users to read the current live resource contents
+	if len(request.PATH) == 1 && request.PATH[0] == "live" && auth.IsReadOperation(request) {
+		return true, http.StatusOK
+	}
+
 	return false, http.StatusForbidden
 }
