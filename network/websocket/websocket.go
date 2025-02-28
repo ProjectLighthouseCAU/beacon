@@ -117,11 +117,10 @@ func getWebsocketHandler(ep *Endpoint) http.HandlerFunc {
 		}
 		conn.SetReadLimit(int64(readLimit)) // set the maximum message size -> closes connection if exceeded
 
-		client := types.NewClient(getSendHandle(conn))
+		client := types.NewClient(getSendFunc(conn))
 
-		// TODO: move this function into the client struct (similar to send)
 		disconnectClient := func() {
-			ep.Handler.Disconnect(client)
+			client.Disconnect(ep.Handler.GetDirectory())
 			conn.Close()
 			log.Println("Client disconnected: ", clientIp)
 		}
@@ -163,7 +162,7 @@ func getWebsocketHandler(ep *Endpoint) http.HandlerFunc {
 // This function wraps a reference to the websocket connection
 // and a mutex lock for synchronous access to that connection into a closure
 // and returns a function that takes a server.Response and writes it thread-safe to the websocket connection.
-func getSendHandle(connection *websocket.Conn) func(*types.Response) error {
+func getSendFunc(connection *websocket.Conn) func(*types.Response) error {
 
 	var lock = &sync.Mutex{}
 

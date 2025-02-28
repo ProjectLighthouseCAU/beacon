@@ -14,18 +14,17 @@
 - DONE: load last state of resources at startup
 - DONE: LINK operation to link a resource to another resource
 - DONE: replace all occurences of "interface{}" with "any"
+- DONE: change STREAM behavior: allow multiple streams of same resource but with different REID
+- DONE: decide if all streams of a resource get the updates in the same order (racing put requests cannot be ordered) -> ANSWER: no, for now
+
+- DECIDE: if values should be dropped if stream is slow (and not slow down other streams) -> ANSWER: yes, for most payloads (e.g. images), maybe later add config to not drop values in resource
 
 - IMPORTANT/DIFFICULT: websocket timeout after some time of no or only invalid, or unauthorized request
-- IMPORTANT/EASY-MEDIUM: change STREAM behavior: allow multiple streams of same resource but with different REID
-- DECIDE/EASY: if all streams of a resource get the updates in the same order (racing put requests cannot be ordered)
-- DECIDE/EASY: if values should be dropped if stream is slow (and not slow down other streams)
 
-- UNIMPORTANT/MEDIUM-DIFFICULT: overhaul interface to heimdall (redis seems unergonomic and clunky), maybe use http endpoint in heimdall to check authentication and cache the result
+- IMPORTANT/MEDIUM-DIFFICULT: overhaul interface to heimdall (redis seems unergonomic and clunky), maybe use http endpoint in heimdall to check authentication and cache the result
 - UNIMPORTANT/MEDIUM: overhaul snapshotting (make it more robust, maybe change "gob" AND "msgpack" to just "msgpack" -> cannot differentiate between directory and resource content)
 - UNIMPORTANT/MEDIUM: export prometheus metrics
 - UNIMPORTANT/DIFFICULT: fine grained access control
-
-- MAYBE/UNSURE: LIST: optionally return string representation
 
 # TODO:
 

@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/ProjectLighthouseCAU/beacon/types"
 )
@@ -12,14 +14,15 @@ func (handler *Handler) stop(client *types.Client, request *types.Request) *type
 	if err != nil { // resource not found
 		return response.Warning(err.Error()).Rnum(http.StatusNotFound).Build()
 	}
-	stream := client.GetStream(request.PATH)
+	stream := client.GetStream(request.REID, request.PATH)
 	if stream == nil {
-		return response.Rnum(http.StatusNotFound).Warning("No open stream for this resource").Build()
+		warning := fmt.Sprintf("No open stream for resource %s with REID %v", strings.Join(request.PATH, "/"), request.REID)
+		return response.Rnum(http.StatusNotFound).Warning(warning).Build()
 	}
 	resp := resource.StopStream(stream)
 	if resp.Err != nil {
 		response.Warning(resp.Err.Error())
 	}
-	client.RemoveStream(request.PATH)
+	client.RemoveStream(request.REID, request.PATH)
 	return response.Rnum(resp.Code).Build()
 }
