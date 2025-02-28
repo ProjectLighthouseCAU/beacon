@@ -14,14 +14,14 @@ type Response struct {
 	REID     msgp.Raw
 	RNUM     int
 	RESPONSE string
-	META     map[interface{}]interface{}
+	META     map[any]any
 	PAYL     msgp.Raw
 	WARNINGS []string
 }
 
 func NewResponse() *Response {
 	return &Response{
-		META:     map[interface{}]interface{}{},
+		META:     map[any]any{},
 		WARNINGS: []string{},
 	}
 }
@@ -37,7 +37,7 @@ func (r *Response) Response(response string) *Response {
 	r.RESPONSE = response
 	return r
 }
-func (r *Response) Meta(key interface{}, value interface{}) *Response {
+func (r *Response) Meta(key any, value any) *Response {
 	r.META[key] = value
 	return r
 }

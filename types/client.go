@@ -9,7 +9,7 @@ type Client struct {
 
 type stream struct {
 	path    []string
-	channel chan interface{}
+	channel chan any
 }
 
 func NewClient(send func(*Response) error) *Client {
@@ -19,14 +19,14 @@ func NewClient(send func(*Response) error) *Client {
 	}
 }
 
-func (c *Client) AddStream(path []string, ch chan interface{}) {
+func (c *Client) AddStream(path []string, ch chan any) {
 	c.streams = append(c.streams, stream{
 		path:    path,
 		channel: ch,
 	})
 }
 
-func (c *Client) GetStream(path []string) chan interface{} {
+func (c *Client) GetStream(path []string) chan any {
 	for _, s := range c.streams {
 		if equals(s.path, path) {
 			return s.channel
@@ -52,7 +52,7 @@ func (c *Client) RemoveStream(path []string) {
 	c.streams = c.streams[:len(c.streams)-1]
 }
 
-func (c *Client) ForEachStream(f func(path []string, ch chan interface{})) {
+func (c *Client) ForEachStream(f func(path []string, ch chan any)) {
 	for _, s := range c.streams {
 		f(s.path, s.channel)
 	}

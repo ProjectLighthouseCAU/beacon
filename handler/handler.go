@@ -42,7 +42,7 @@ func (handler *Handler) Close() {
 }
 
 func (handler *Handler) Disconnect(client *types.Client) {
-	client.ForEachStream(func(path []string, ch chan interface{}) {
+	client.ForEachStream(func(path []string, ch chan any) {
 		resource, err := handler.directory.GetResource(path)
 		if err != nil {
 			return

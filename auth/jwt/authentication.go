@@ -16,8 +16,8 @@ var (
 // --- JWT Authentication ---
 
 // ValidateJWT parses and validates an HMAC signed JWT and returns its claims or an error if invalid
-func ValidateJWT(tokenStr string) (map[string]interface{}, error) {
-	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
+func ValidateJWT(tokenStr string) (map[string]any, error) {
+	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}

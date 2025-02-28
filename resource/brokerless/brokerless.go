@@ -63,14 +63,14 @@ func (r *brokerless) Close() resource.Response {
 }
 
 // Get implements resource.Resource.
-func (r *brokerless) Get() (interface{}, resource.Response) {
+func (r *brokerless) Get() (any, resource.Response) {
 	r.valueLock.RLock()
 	defer r.valueLock.RUnlock()
 	return r.value, resource.Response{Code: 200, Err: nil}
 }
 
 // Put implements resource.Resource.
-func (r *brokerless) Put(value interface{}) resource.Response {
+func (r *brokerless) Put(value any) resource.Response {
 	r.valueLock.Lock()
 	r.value = value
 	r.valueLock.Unlock()
@@ -92,7 +92,7 @@ func (r *brokerless) Put(value interface{}) resource.Response {
 }
 
 // Stream implements resource.Resource.
-func (r *brokerless) Stream() (chan interface{}, resource.Response) {
+func (r *brokerless) Stream() (chan any, resource.Response) {
 	r.streamsLock.Lock()
 	defer r.streamsLock.Unlock()
 
@@ -102,7 +102,7 @@ func (r *brokerless) Stream() (chan interface{}, resource.Response) {
 }
 
 // StopStream implements resource.Resource.
-func (r *brokerless) StopStream(stream chan interface{}) resource.Response {
+func (r *brokerless) StopStream(stream chan any) resource.Response {
 	r.streamsLock.Lock()
 	defer r.streamsLock.Unlock()
 

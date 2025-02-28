@@ -15,7 +15,7 @@ type Request struct {
 	AUTH map[string]string
 	VERB string
 	PATH []string
-	META map[interface{}]interface{}
+	META map[any]any
 	PAYL msgp.Raw
 }
 
