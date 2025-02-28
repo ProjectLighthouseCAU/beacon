@@ -22,6 +22,12 @@ func IsReadOperation(req *types.Request) bool {
 	}[req.VERB]
 }
 
+// Helper function for determining if an operation is read-write (not create, mkdir or delete)
+// POST, CREATE, MKDIR, DELETE, (LINK, UNLINK) should only be used by admin (or deploy)
+func IsReadWriteOperation(req *types.Request) bool {
+	return IsReadOperation(req) || req.VERB == "PUT"
+}
+
 // --- Combined Authorization Handlers ---
 
 type andAuth struct {
