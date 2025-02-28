@@ -53,13 +53,15 @@ func (r *Response) Build() *Response {
 	if r.REID == nil {
 		log.Println("REID must be set")
 		r.REID = []byte{0xc0} // msgpack nil
+		r.RNUM = http.StatusInternalServerError
 	}
-	if http.StatusText(r.RNUM) == "" {
+	statusText := http.StatusText(r.RNUM)
+	if statusText == "" {
 		log.Println("RNUM must be set and valid HTTP status code")
-		r.RNUM = http.StatusTeapot
+		r.RNUM = http.StatusInternalServerError
 	}
 	if r.RESPONSE == "" {
-		r.RESPONSE = http.StatusText(r.RNUM)
+		r.RESPONSE = statusText
 	}
 	return r
 }

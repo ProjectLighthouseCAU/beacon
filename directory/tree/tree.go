@@ -80,7 +80,7 @@ func (d *directory) getDirectory(path []string, createMissingNodes bool) (*node,
 	}
 	n, ok := current.(*node)
 	if !ok {
-		return nil, errors.New("")
+		return nil, errors.New(strings.Join(path, "/") + " is not a directory")
 	}
 	return n, nil
 }
