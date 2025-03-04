@@ -1,20 +1,20 @@
 package resource
 
 type Resource interface {
-	Stream() (chan interface{}, Response)
-	StopStream(chan interface{}) Response
-	Put(interface{}) Response
-	Get() (interface{}, Response)
+	Stream() (chan any, Response)
+	StopStream(chan any) Response
+	Put(any) Response
+	Get() (any, Response)
 	Link(Resource) Response
 	UnLink(Resource) Response
 	Close() Response
 }
 
-// type Channel chan interface{}
+// type Channel chan any
 
 // type Channel interface {
-// 	Write(interface{})
-// 	Read() (interface{}, bool)
+// 	Write(any)
+// 	Read() (any, bool)
 // 	Close()
 // }
 

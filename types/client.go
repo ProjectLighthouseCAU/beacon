@@ -6,6 +6,9 @@ import (
 	"time"
 
 	"github.com/ProjectLighthouseCAU/beacon/config"
+	"github.com/ProjectLighthouseCAU/beacon/directory"
+	"github.com/tinylib/msgp/msgp"
+	"github.com/vmihailenco/msgpack"
 )
 
 var (
@@ -17,7 +20,7 @@ var (
 // as well as a Streams map that stores the active stream channels for each resource path.
 type Client struct {
 	Send    func(*Response) error
-	streams []stream
+	streams map[reid]map[path]chan any
 	timeout *time.Timer
 
 	lock     sync.RWMutex
@@ -25,15 +28,13 @@ type Client struct {
 	token    string
 }
 
-type stream struct {
-	path    []string
-	channel chan interface{}
-}
+type reid string // using REID (msgp.Raw) which is a []byte converted to string as map key
+type path string // using PATH ([]string) converted to msgpack []byte converted to string as map key
 
 func NewClient(send func(r *Response) error) *Client {
 	return &Client{
 		Send:    send,
-		streams: make([]stream, 0),
+		streams: make(map[reid]map[path]chan any, 0),
 		timeout: nil,
 	}
 }
@@ -73,53 +74,74 @@ func (c *Client) GetNumberOfStreams() int {
 	return len(c.streams)
 }
 
-func (c *Client) AddStream(path []string, ch chan interface{}) {
-	c.streams = append(c.streams, stream{
-		path:    path,
-		channel: ch,
-	})
+func reidToMapKey(REID msgp.Raw) reid {
+	return reid(REID)
 }
 
-func (c *Client) GetStream(path []string) chan interface{} {
-	for _, s := range c.streams {
-		if equals(s.path, path) {
-			return s.channel
-		}
+func pathToMapKey(PATH []string) path {
+	key, err := msgpack.Marshal(PATH)
+	if err != nil {
+		log.Println(err)
 	}
-	return nil
+	return path(key)
 }
 
-func (c *Client) RemoveStream(path []string) {
-	idx := -1
-	for i := 0; i < len(c.streams); i++ {
-		if equals(c.streams[i].path, path) {
-			idx = i
-			break
-		}
+func pathFromMapKey(p path) []string {
+	var PATH []string
+	err := msgpack.Unmarshal([]byte(p), &PATH)
+	if err != nil {
+		log.Println(err)
 	}
-	if idx == -1 {
+	return PATH
+}
+
+func (c *Client) AddStream(REID msgp.Raw, PATH []string, stream chan any) {
+	reidKey := reidToMapKey(REID)
+	_, ok := c.streams[reidKey]
+	if !ok {
+		c.streams[reidKey] = make(map[path]chan any)
+	}
+	c.streams[reidKey][pathToMapKey(PATH)] = stream
+}
+
+func (c *Client) GetStream(reid msgp.Raw, path []string) chan any {
+	streams, ok := c.streams[reidToMapKey(reid)]
+	if !ok {
+		return nil
+	}
+	stream, ok := streams[pathToMapKey(path)]
+	if !ok {
+		return nil
+	}
+	return stream
+}
+
+func (c *Client) RemoveStream(reid msgp.Raw, path []string) {
+	reidKey := reidToMapKey(reid)
+	streams, ok := c.streams[reidKey]
+	if !ok {
 		return
 	}
-	// delete from slice
-	c.streams[idx] = c.streams[len(c.streams)-1]
-	c.streams[len(c.streams)-1] = stream{}
-	c.streams = c.streams[:len(c.streams)-1]
-}
-
-func (c *Client) ForEachStream(f func(path []string, ch chan interface{})) {
-	for _, s := range c.streams {
-		f(s.path, s.channel)
+	pathKey := pathToMapKey(path)
+	_, ok = streams[pathKey]
+	if !ok {
+		return
+	}
+	delete(streams, pathKey)
+	if len(streams) == 0 {
+		delete(c.streams, reidKey)
 	}
 }
 
-func equals(s1 []string, s2 []string) bool {
-	if len(s1) != len(s2) {
-		return false
-	}
-	for i := 0; i < len(s1); i++ {
-		if s1[i] != s2[i] {
-			return false
+func (c *Client) Disconnect(dir directory.Directory) {
+	// Stop all streams of this client
+	for _, streams := range c.streams {
+		for path, stream := range streams {
+			resource, err := dir.GetResource(pathFromMapKey(path))
+			if err != nil {
+				return
+			}
+			resource.StopStream(stream)
 		}
 	}
-	return true
 }

@@ -80,7 +80,7 @@ func (d *directory) getDirectory(path []string, createMissingNodes bool) (*node,
 	}
 	n, ok := current.(*node)
 	if !ok {
-		return nil, errors.New("")
+		return nil, errors.New(strings.Join(path, "/") + " is not a directory")
 	}
 	return n, nil
 }
@@ -253,7 +253,7 @@ func forEach(t tree, f func(resource.Resource) (bool, error)) (err error) {
 
 // List lists the contents of a directory by returning a recursively nested map of subdirectories.
 // A resource is indicated by a nil value.
-func (d *directory) List(path []string) (map[string]interface{}, error) {
+func (d *directory) List(path []string) (map[string]any, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 
@@ -268,8 +268,8 @@ func (d *directory) List(path []string) (map[string]interface{}, error) {
 	return m, nil
 }
 
-func list(n *node, includeContent bool) (map[string]interface{}, error) {
-	result := make(map[string]interface{})
+func list(n *node, includeContent bool) (map[string]any, error) {
+	result := make(map[string]any)
 	for k, v := range n.entries {
 		switch x := v.(type) {
 		case *leaf:
@@ -296,7 +296,7 @@ func list(n *node, includeContent bool) (map[string]interface{}, error) {
 // We therefore use MsgPack to marshal the resource contents (in order to keep full MsgPack compatibility)
 // and then gob (Go's binary encoding) to marshal the directory tree.
 // Restoring from a snapshot does the same thing in reverse: First decode with gob and then decode the resources with msgpack.
-// Note: shamaton/msgpack library decodes map[string]interface{} as map[interface{}]interface{} -> switched to vmihailenco/msgpack
+// Note: shamaton/msgpack library decodes map[string]any as map[any]any -> switched to vmihailenco/msgpack
 
 // Snapshot takes a snapshot of a directory (including the resource contents), serializes and writes it to the io.Writer.
 func (d *directory) Snapshot(path []string, writer io.Writer) error {
@@ -306,7 +306,7 @@ func (d *directory) Snapshot(path []string, writer io.Writer) error {
 	if err != nil {
 		return err
 	}
-	gob.Register(map[string]interface{}{})
+	gob.Register(map[string]any{})
 	enc := gob.NewEncoder(writer)
 	m, err := list(n, true)
 	if err != nil {
@@ -322,8 +322,8 @@ func (d *directory) Restore(path []string, reader io.Reader) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
-	var m map[string]interface{}
-	gob.Register(map[string]interface{}{})
+	var m map[string]any
+	gob.Register(map[string]any{})
 	dec := gob.NewDecoder(reader)
 	err := dec.Decode(&m)
 	if err != nil {
@@ -332,10 +332,10 @@ func (d *directory) Restore(path []string, reader io.Reader) error {
 	return restore(d, path, m)
 }
 
-func restore(d *directory, path []string, m map[string]interface{}) error {
+func restore(d *directory, path []string, m map[string]any) error {
 	for k, v := range m {
 		switch x := v.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			p := append(path, k)
 			_, err := d.getDirectory(p, true)
 			if err != nil {

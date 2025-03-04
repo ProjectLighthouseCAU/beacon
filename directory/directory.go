@@ -33,7 +33,7 @@ type Directory interface {
 	ForEach(f func(resource.Resource) (bool, error)) error
 
 	// Returns the directory structure as a nested map
-	List(path []string) (map[string]interface{}, error)
+	List(path []string) (map[string]any, error)
 
 	// Takes a snapshot of a directory
 	Snapshot(path []string, writer io.Writer) error

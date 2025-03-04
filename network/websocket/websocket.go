@@ -118,8 +118,6 @@ func getWebsocketHandler(ep *Endpoint) http.HandlerFunc {
 		}
 		conn.SetReadLimit(int64(readLimit)) // set the maximum message size -> closes connection if exceeded
 
-		client := types.NewClient(getSendHandle(conn))
-
 		// TODO: problem:
 		// don't timeout connection if client has open STREAM
 		// BUT disconnect, if client is no longer authenticated or authorized -> DONE: disconnect when handler returns false (bad request or unauthorized)
@@ -130,21 +128,21 @@ func getWebsocketHandler(ep *Endpoint) http.HandlerFunc {
 		// TODO: this sort of timeouts is way too complicated and easy to mess up
 		// -> come up with an easier way to secure the websocket endpoint against unauthorized idle connections taking up server resources
 		// -> setup checking of client authentication in regular intervals, save USERNAME and TOKEN of the last request in the client struct
+		client := types.NewClient(getSendFunc(conn))
 
 		// setup timeout to close the connection if no authorized request was received within the specified duration
 		client.EnableTimeout(func() {
 			// TODO: don't disconnect on timeout if last API token is still authenticated (?)
 			log.Println("Timeout func called")
-			ep.Handler.Disconnect(client)
+			client.Disconnect(ep.Handler.GetDirectory())
 			warning := fmt.Sprintf("Websocket connection timed out after %s of inactivity or only unauthorized requests", config.GetDuration("WEBSOCKET_CONNECTION_TIMEOUT", 5*time.Minute))
 			client.Send(types.NewResponse().Reid([]byte{0}).Rnum(http.StatusRequestTimeout).Warning(warning).Build())
 			log.Println("Websocket connection timed out: ", clientIp)
 			conn.Close()
 		})
 
-		// TODO: move this function into the client struct (similar to send)
 		disconnectClient := func() {
-			ep.Handler.Disconnect(client)
+			client.Disconnect(ep.Handler.GetDirectory())
 			conn.Close()
 			log.Println("Client disconnected: ", clientIp)
 		}
@@ -173,6 +171,7 @@ func getWebsocketHandler(ep *Endpoint) http.HandlerFunc {
 			}
 
 			client.SetAuth(request.AUTH["USER"], request.AUTH["TOKEN"])
+
 			requestAuthorized := ep.Handler.HandleRequest(client, &request)
 
 			// TODO: only disconnect on 401 not 403!
@@ -187,7 +186,8 @@ func getWebsocketHandler(ep *Endpoint) http.HandlerFunc {
 // This function wraps a reference to the websocket connection
 // and a mutex lock for synchronous access to that connection into a closure
 // and returns a function that takes a server.Response and writes it thread-safe to the websocket connection.
-func getSendHandle(connection *websocket.Conn) func(*types.Response) error {
+
+func getSendFunc(connection *websocket.Conn) func(*types.Response) error {
 
 	var lock = &sync.Mutex{}
 

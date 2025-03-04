@@ -74,7 +74,7 @@ func (a *AllowCustom) IsAuthorized(c *types.Client, req *types.Request) (bool, i
 	}
 
 	if req.PATH[0] == "user" && req.PATH[2] == "model" && len(req.PATH) == 3 {
-		if req.PATH[1] == username {
+		if req.PATH[1] == username && auth.IsReadWriteOperation(req) {
 			return true, http.StatusOK
 		}
 		if auth.IsReadOperation(req) {

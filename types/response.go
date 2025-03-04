@@ -14,14 +14,14 @@ type Response struct {
 	REID     msgp.Raw
 	RNUM     int
 	RESPONSE string
-	META     map[interface{}]interface{}
+	META     map[any]any
 	PAYL     msgp.Raw
 	WARNINGS []string
 }
 
 func NewResponse() *Response {
 	return &Response{
-		META:     map[interface{}]interface{}{},
+		META:     map[any]any{},
 		WARNINGS: []string{},
 	}
 }
@@ -37,7 +37,7 @@ func (r *Response) Response(response string) *Response {
 	r.RESPONSE = response
 	return r
 }
-func (r *Response) Meta(key interface{}, value interface{}) *Response {
+func (r *Response) Meta(key any, value any) *Response {
 	r.META[key] = value
 	return r
 }
@@ -53,13 +53,15 @@ func (r *Response) Build() *Response {
 	if r.REID == nil {
 		log.Println("REID must be set")
 		r.REID = []byte{0xc0} // msgpack nil
+		r.RNUM = http.StatusInternalServerError
 	}
-	if http.StatusText(r.RNUM) == "" {
+	statusText := http.StatusText(r.RNUM)
+	if statusText == "" {
 		log.Println("RNUM must be set and valid HTTP status code")
-		r.RNUM = http.StatusTeapot
+		r.RNUM = http.StatusInternalServerError
 	}
 	if r.RESPONSE == "" {
-		r.RESPONSE = http.StatusText(r.RNUM)
+		r.RESPONSE = statusText
 	}
 	return r
 }

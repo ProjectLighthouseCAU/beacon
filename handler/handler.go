@@ -34,20 +34,14 @@ func New(dir directory.Directory, a auth.Auth) *Handler {
 	}
 }
 
+func (handler *Handler) GetDirectory() directory.Directory {
+	return handler.directory
+}
+
 func (handler *Handler) Close() {
 	handler.directory.ForEach(func(res resource.Resource) (bool, error) {
 		res.Close()
 		return true, nil
-	})
-}
-
-func (handler *Handler) Disconnect(client *types.Client) {
-	client.ForEachStream(func(path []string, ch chan interface{}) {
-		resource, err := handler.directory.GetResource(path)
-		if err != nil {
-			return
-		}
-		resource.StopStream(ch)
 	})
 }
 
@@ -59,9 +53,7 @@ func (handler *Handler) HandleRequest(client *types.Client, request *types.Reque
 			client.Send(response)
 		}
 	}()
-	if verbose {
-		fmt.Printf("Request: %+v\n", request)
-	}
+
 	// Authentication and Authorization
 	if ok, code := handler.auth.IsAuthorized(client, request); !ok {
 		response := types.NewResponse().Reid(request.REID).Rnum(code).Build()
@@ -102,7 +94,7 @@ func (handler *Handler) HandleRequest(client *types.Client, request *types.Reque
 	}
 
 	if verbose {
-		fmt.Printf("Response: %+v", response)
+		log.Printf("\nRequest: %+v\nResponse: %+v\n", request, response)
 	}
 	client.Send(response)
 	return true

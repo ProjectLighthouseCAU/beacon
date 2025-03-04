@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	snapshotPath     = config.GetString("SNAPSHOT_PATH", "./beacon-snapshot")
+	snapshotPath     = config.GetString("SNAPSHOT_PATH", "./snapshot.beacon")
 	snapshotInterval = config.GetDuration("SNAPSHOT_INTERVAL", 1*time.Second)
 )
 

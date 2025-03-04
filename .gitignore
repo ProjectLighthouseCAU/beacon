@@ -1,3 +1,4 @@
 beacon*
+*.beacon
 profile*
 *.pprof

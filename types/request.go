@@ -15,7 +15,7 @@ type Request struct {
 	AUTH map[string]string
 	VERB string
 	PATH []string
-	META map[interface{}]interface{}
+	META map[any]any
 	PAYL msgp.Raw
 }
 
@@ -24,7 +24,7 @@ func (r *Request) PayloadToPath() ([]string, error) {
 	var path []string
 	err := msgpack.Unmarshal(([]byte)(r.PAYL), &path)
 	if err != nil {
-		return nil, errors.New("Payload is not an array of strings")
+		return nil, errors.New("Payload is not a path ([]string)")
 	}
 	return path, nil
 }

@@ -33,7 +33,7 @@ var (
 	websocketHost    = config.GetString("WEBSOCKET_HOST", "127.0.0.1")
 	websocketPort    = config.GetInt("WEBSOCKET_PORT", 3000)
 	websocketRoute   = config.GetString("WEBSOCKET_ROUTE", "/websocket")
-	snapshotPath     = config.GetString("SNAPSHOT_PATH", "./beacon-snapshot")
+	snapshotPath     = config.GetString("SNAPSHOT_PATH", "./snapshot.beacon")
 	snapshotInterval = config.GetDuration("SNAPSHOT_INTERVAL", 1*time.Second)
 )
 
@@ -74,7 +74,7 @@ func main() {
 
 	directory := tree.NewTree(createResourceFunc)
 
-	f, err := os.Open(snapshotPath)
+	f, err := os.OpenFile(snapshotPath, os.O_CREATE, 0644)
 	if err != nil {
 		log.Println("could not create or open snapshot file")
 	}

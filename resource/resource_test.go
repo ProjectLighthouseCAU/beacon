@@ -313,7 +313,7 @@ func TestLinkUnLinkStreamPut(t *testing.T) {
 
 func TestStopStreamInvalid(t *testing.T) {
 	testResource := resource.Create([]string{})
-	stream := make(chan interface{})
+	stream := make(chan any)
 	resp := testResource.StopStream(stream)
 	if resp.Err == nil {
 		t.Fatalf("Expected error, got nil")
