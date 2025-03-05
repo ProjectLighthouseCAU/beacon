@@ -12,10 +12,6 @@ import (
 	"github.com/ProjectLighthouseCAU/beacon/types"
 )
 
-var (
-	verbose = config.GetBool("VERBOSE_LOGGING", false)
-)
-
 type Handler struct {
 	directory directory.Directory
 	auth      auth.Auth
@@ -93,7 +89,7 @@ func (handler *Handler) HandleRequest(client *types.Client, request *types.Reque
 		return false
 	}
 
-	if verbose {
+	if config.VerboseLogging {
 		log.Printf("\nRequest: %+v\nResponse: %+v\n", request, response)
 	}
 	client.Send(response)

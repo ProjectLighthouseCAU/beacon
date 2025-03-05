@@ -23,12 +23,6 @@ const (
 	UNLINK
 )
 
-var (
-	inputChanSize   = config.GetInt("RESOURCE_PUT_CHANNEL_SIZE", 1000)
-	streamChanSize  = config.GetInt("RESOURCE_STREAM_CHANNEL_SIZE", 1000)
-	controlChanSize = config.GetInt("RESOURCE_CONTROL_CHANNEL_SIZE", 100)
-)
-
 type broker struct {
 	path []string // resource path
 
@@ -69,8 +63,8 @@ func Create(path []string) resource.Resource {
 	r := &broker{
 		path: path,
 
-		input:   make(chan inputMsg, inputChanSize),
-		control: make(chan controlMsg, controlChanSize),
+		input:   make(chan inputMsg, config.ResourceInputChannelSize),
+		control: make(chan controlMsg, config.ResourceControlChannelSize),
 
 		streams: make(map[chan any]bool),
 		links:   make(map[*broker]chan any),
@@ -212,7 +206,7 @@ func (r *broker) Close() resource.Response {
 // Stream subscribes to this resource.
 // This returns a new channel where all updates to this resource will be sent to.
 func (r *broker) Stream() (chan any, resource.Response) {
-	stream := make(chan any, streamChanSize)
+	stream := make(chan any, config.ResourceStreamChannelSize)
 	respChan := make(chan resource.Response)
 	defer close(respChan)
 	r.control <- controlMsg{Type: STREAM, Content: streamContent{stream, false}, ResponseChan: respChan}
@@ -290,8 +284,8 @@ func (r *broker) isLinkedBy(other *broker) bool {
 
 // Makes an infinite channel by using a slice and a goroutine
 func makeInfinite() (in chan any, out chan any) {
-	in = make(chan any, streamChanSize)
-	out = make(chan any, streamChanSize)
+	in = make(chan any, config.ResourceStreamChannelSize)
+	out = make(chan any, config.ResourceStreamChannelSize)
 	go func() {
 		var inQ []any
 		outC := func() chan any {

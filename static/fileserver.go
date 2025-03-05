@@ -4,24 +4,17 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strconv"
 
 	"github.com/ProjectLighthouseCAU/beacon/config"
 )
 
-var (
-	webinterfaceHost  = config.GetString("WEBINTERFACE_HOST", "127.0.0.1")
-	webinterfaceRoute = config.GetString("WEBINTERFACE_ROUTE", "/")
-	webinterfacePort  = config.GetInt("WEBINTERFACE_PORT", 3001)
-)
-
 func StartFileserver() {
 	// serve static testing site (only works with websocket endpoint enabled)
-	log.Println("Serving static files: " + "http://" + webinterfaceHost + ":" + strconv.Itoa(webinterfacePort) + webinterfaceRoute)
+	log.Printf("Serving static files: http://%s:%d%s\n", config.WebinterfaceHost, config.WebinterfacePort, config.WebinterfaceRoute)
 	mux := http.NewServeMux()
-	mux.Handle(webinterfaceRoute, http.FileServer(http.Dir("./static")))
+	mux.Handle(config.WebinterfaceRoute, http.FileServer(http.Dir("./static")))
 	serv := &http.Server{
-		Addr:    webinterfaceHost + ":" + fmt.Sprint(webinterfacePort),
+		Addr:    fmt.Sprintf("%s:%d", config.WebinterfaceHost, config.WebinterfacePort),
 		Handler: mux,
 	}
 	go func() {

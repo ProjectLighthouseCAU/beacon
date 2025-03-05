@@ -29,22 +29,22 @@ func New() *AllowCustom {
 }
 
 func parseUserJson() (users map[string]string) {
-	err := json.Unmarshal([]byte(config.GetString("USERS_CONFIG_JSON", "{}")), &users)
+	err := json.Unmarshal([]byte(config.UsersConfigJson), &users)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	fmt.Println("Users: ", config.GetString("USERS_CONFIG_JSON", "{}"), users)
+	fmt.Println("Users: ", config.UsersConfigJson, users)
 	return
 }
 
 func parseAdminJson() (admins map[string]bool) {
-	err := json.Unmarshal([]byte(config.GetString("ADMINS_CONFIG_JSON", "{}")), &admins)
+	err := json.Unmarshal([]byte(config.AdminsConfigJson), &admins)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	fmt.Println("Admins: ", config.GetString("ADMINS_CONFIG_JSON", "{}"), admins)
+	fmt.Println("Admins: ", config.AdminsConfigJson, admins)
 	return
 }
 

@@ -9,11 +9,6 @@ import (
 	"github.com/ProjectLighthouseCAU/beacon/directory"
 )
 
-var (
-	snapshotPath     = config.GetString("SNAPSHOT_PATH", "./snapshot.beacon")
-	snapshotInterval = config.GetDuration("SNAPSHOT_INTERVAL", 1*time.Second)
-)
-
 type Snapshotter struct {
 	directory directory.Directory
 	stop      chan struct{}
@@ -48,15 +43,15 @@ func (s *Snapshotter) Wait() {
 // Goroutine that takes a snapshot of the entire directory every snapshotInterval
 func (s *Snapshotter) snapshotLoop() {
 	var f *os.File
-	_, err := os.Stat(snapshotPath)
+	_, err := os.Stat(config.SnapshotPath)
 	if err != nil {
-		f, err = os.Create(snapshotPath)
+		f, err = os.Create(config.SnapshotPath)
 		if err != nil {
 			log.Println("[ERROR] could not create snapshot file", err)
 			return
 		}
 	} else {
-		f, err = os.OpenFile(snapshotPath, os.O_RDWR, 0644)
+		f, err = os.OpenFile(config.SnapshotPath, os.O_RDWR, 0644)
 		if err != nil {
 			log.Println("[ERROR] could not open snapshot file", err)
 			return
@@ -68,7 +63,7 @@ Loop:
 		select {
 		case <-s.stop:
 			break Loop
-		case <-time.After(snapshotInterval):
+		case <-time.After(config.SnapshotInterval):
 			// start := time.Now()
 			f.Truncate(0)
 			f.Seek(0, 0)

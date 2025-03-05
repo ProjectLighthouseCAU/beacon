@@ -15,14 +15,6 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-var (
-	readBufferSize  = config.GetInt("WEBSOCKET_READ_BUFFER_SIZE", 0)
-	writeBufferSize = config.GetInt("WEBSOCKET_WRITE_BUFFER_SIZE", 0)
-	readLimit       = config.GetInt("WEBSOCKET_READ_LIMIT", 2048)
-	certificatePath = config.GetString("TLS_CERT_PATH", "")
-	privateKeyPath  = config.GetString("TLS_PRIVATE_KEY_PATH", "")
-)
-
 // Endpoint defines a websocket endpoint
 type Endpoint struct { // extends BaseEndpoint implements network.Endpoint (reminder for Java-Dev)
 	httpServer           *http.Server
@@ -44,8 +36,6 @@ func CreateEndpoint(host string, port int, route string, handler *handler.Handle
 		}
 	}()
 
-	var tlsEnabled bool = certificatePath != "" && privateKeyPath != ""
-
 	ep := &Endpoint{
 		BaseEndpoint: network.BaseEndpoint{
 			Type:    network.Websocket,
@@ -53,8 +43,8 @@ func CreateEndpoint(host string, port int, route string, handler *handler.Handle
 		},
 		httpServer: &http.Server{Addr: host + ":" + strconv.Itoa(port)},
 		upgrader: websocket.Upgrader{
-			ReadBufferSize:  readBufferSize,
-			WriteBufferSize: writeBufferSize,
+			ReadBufferSize:  config.WebsocketReadBufferSize,
+			WriteBufferSize: config.WebsocketWriteBufferSize,
 			CheckOrigin: func(r *http.Request) bool {
 				return true // allow websocket connections from all origin domains
 			},
@@ -62,22 +52,12 @@ func CreateEndpoint(host string, port int, route string, handler *handler.Handle
 	}
 	ep.httpServer.Handler = getWebsocketHandler(ep)
 	go func() {
-		if tlsEnabled {
-			if err := ep.httpServer.ListenAndServeTLS(certificatePath, privateKeyPath); err != http.ErrServerClosed {
-				log.Panicf("ListenAndServe returned: %v", err)
-			}
-		} else {
-			if err := ep.httpServer.ListenAndServe(); err != http.ErrServerClosed {
-				log.Panicf("ListenAndServe returned: %v", err)
-			}
+		if err := ep.httpServer.ListenAndServe(); err != http.ErrServerClosed {
+			log.Panicf("ListenAndServe returned: %v", err)
 		}
 	}()
 
-	url := "ws"
-	if tlsEnabled {
-		url = url + "s"
-	}
-	url = url + "://" + host + ":" + strconv.Itoa(port) + route
+	url := "ws://" + host + ":" + strconv.Itoa(port) + route
 	log.Printf("WebSocket Endpoint created: " + url)
 
 	return ep
@@ -115,7 +95,7 @@ func getWebsocketHandler(ep *Endpoint) http.HandlerFunc {
 			log.Println(err)
 			return
 		}
-		conn.SetReadLimit(int64(readLimit)) // set the maximum message size -> closes connection if exceeded
+		conn.SetReadLimit(int64(config.WebsocketReadLimit)) // set the maximum message size -> closes connection if exceeded
 
 		client := types.NewClient(getSendFunc(conn))
 

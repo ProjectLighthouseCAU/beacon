@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"slices"
 	"sync"
-	"time"
 
 	"golang.org/x/exp/maps"
 
@@ -38,14 +37,14 @@ func New(dir directory.Directory) *HeimdallAuth {
 	auth := &HeimdallAuth{
 		dir: dir,
 		rdb: redis.NewClient(&redis.Options{
-			Addr:     config.GetString("REDIS_HOST", "127.0.0.1") + ":" + config.GetString("REDIS_PORT", "6379"),
-			Username: config.GetString("REDIS_USER", ""),
-			Password: config.GetString("REDIS_PASSWORD", ""),
-			DB:       config.GetInt("REDIS_DB_NUMBER", 0),
+			Addr:     fmt.Sprintf("%s:%d", config.HeimdallRedisHost, config.HeimdallRedisPort),
+			Username: config.HeimdallRedisUser,
+			Password: config.HeimdallRedisPassword,
+			DB:       config.HeimdallRedisDBNumber,
 		}),
 		authData: make(map[string]AuthData),
 	}
-	go util.RunEvery(config.GetDuration("DB_QUERY_PERIOD", 1*time.Second), func() {
+	go util.RunEvery(config.DatabaseQueryInterval, func() {
 		err := auth.reload()
 		if err != nil {
 			log.Println(err)
@@ -152,12 +151,12 @@ func (a *HeimdallAuth) IsAuthorized(client *types.Client, request *types.Request
 	}
 
 	// admin role can perform any action on any path
-	if slices.Contains(authData.Roles, config.GetString("HEIMDALL_ADMIN_ROLENAME", "admin")) {
+	if slices.Contains(authData.Roles, config.HeimdallAdminRolename) {
 		return true, http.StatusOK
 	}
 
 	// deploy role can read and write to /metrics
-	if slices.Contains(authData.Roles, config.GetString("HEIMDALL_DEPLOY_ROLENAME", "deploy")) {
+	if slices.Contains(authData.Roles, config.HeimdallDeployRolename) {
 		if len(request.PATH) > 0 && request.PATH[0] == "metrics" {
 			return true, http.StatusOK
 		}

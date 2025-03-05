@@ -26,10 +26,6 @@ type brokerless struct {
 
 var _ resource.Resource = (*brokerless)(nil)
 
-var (
-	streamChanSize = config.GetInt("RESOURCE_STREAM_CHANNEL_SIZE", 10)
-)
-
 func Create(path []string) resource.Resource {
 	return &brokerless{
 		path:        path,
@@ -80,7 +76,7 @@ func (r *brokerless) Put(value any) resource.Response {
 		case stream <- value:
 		default:
 			// skip stream if channel is full
-			if config.GetBool("VERBOSE_LOGGING", false) {
+			if config.VerboseLogging {
 				log.Printf("[Warning] A stream channel of %s is full and was skipped by the brokerless\n", strings.Join(r.path, "/"))
 			}
 		}
@@ -96,7 +92,7 @@ func (r *brokerless) Stream() (chan any, resource.Response) {
 	r.streamsLock.Lock()
 	defer r.streamsLock.Unlock()
 
-	stream := make(chan any, streamChanSize)
+	stream := make(chan any, config.ResourceStreamChannelSize)
 	r.streams[stream] = struct{}{}
 	return stream, resource.Response{Code: 200, Err: nil}
 }

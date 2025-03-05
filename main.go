@@ -9,7 +9,6 @@ import (
 	"os/signal"
 	"runtime"
 	"syscall"
-	"time"
 
 	"github.com/ProjectLighthouseCAU/beacon/auth"
 	"github.com/ProjectLighthouseCAU/beacon/auth/hardcoded"
@@ -27,14 +26,6 @@ import (
 	"github.com/ProjectLighthouseCAU/beacon/static"
 
 	"github.com/ProjectLighthouseCAU/beacon/config"
-)
-
-var (
-	websocketHost    = config.GetString("WEBSOCKET_HOST", "127.0.0.1")
-	websocketPort    = config.GetInt("WEBSOCKET_PORT", 3000)
-	websocketRoute   = config.GetString("WEBSOCKET_ROUTE", "/websocket")
-	snapshotPath     = config.GetString("SNAPSHOT_PATH", "./snapshot.beacon")
-	snapshotInterval = config.GetDuration("SNAPSHOT_INTERVAL", 1*time.Second)
 )
 
 // The main function sets up the webserver routes for websocket connections
@@ -62,7 +53,7 @@ func main() {
 	log.Printf("GOMAXPROCS: %d\n", runtime.GOMAXPROCS(0))
 
 	var createResourceFunc func(path []string) resource.Resource
-	switch config.GetString("RESOURCE_IMPL", "brokerless") {
+	switch config.ResourceImplementation {
 	case "brokerless":
 		createResourceFunc = brokerless.Create
 	case "broker":
@@ -74,7 +65,7 @@ func main() {
 
 	directory := tree.NewTree(createResourceFunc)
 
-	f, err := os.OpenFile(snapshotPath, os.O_CREATE, 0644)
+	f, err := os.OpenFile(config.SnapshotPath, os.O_CREATE, 0644)
 	if err != nil {
 		log.Println("could not create or open snapshot file")
 	}
@@ -86,23 +77,22 @@ func main() {
 	}
 
 	var authImpl auth.Auth
-	switch config.GetString("AUTH", "") {
+	switch config.Auth {
 	case "hardcoded":
 		authImpl = hardcoded.New()
 	case "legacy":
 		authImpl = legacy.New(directory)
 	case "allow_all":
 		authImpl = auth.AllowAll()
+	case "allow_none":
+		authImpl = auth.AllowNone()
 	case "heimdall":
 		authImpl = heimdall.New(directory)
-	default:
-		log.Println("AUTH environment variable not specified, denying all access by default!")
-		authImpl = auth.AllowNone()
 	}
 
 	handler := handler.New(directory, authImpl)
 
-	websocketEndpoint := websocket.CreateEndpoint(websocketHost, websocketPort, websocketRoute, handler)
+	websocketEndpoint := websocket.CreateEndpoint(config.WebsocketHost, config.WebsocketPort, config.WebsocketRoute, handler)
 	endpoints := []network.Endpoint{websocketEndpoint}
 
 	static.StartFileserver()
@@ -114,11 +104,11 @@ func main() {
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGINT, syscall.SIGTERM) // SIGINT: Ctrl + C, SIGTERM: used by docker
 
 	stop := make(chan struct{})
-	go cli.RunCLI(stop, directory, snapshotPath)
+	go cli.RunCLI(stop, directory, config.SnapshotPath)
 
 	snapshotter := snapshot.CreateSnapshotter(directory)
 	snapshotter.Start()
-	log.Printf("Started automatic snapshotting to %s every %s\n", snapshotPath, snapshotInterval)
+	log.Printf("Started automatic snapshotting to %s every %s\n", config.SnapshotPath, config.SnapshotInterval)
 
 	// Wait for either interrupt or stop command
 	select {

@@ -2,7 +2,6 @@ package legacy
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/ProjectLighthouseCAU/beacon/auth/hardcoded"
 	"github.com/ProjectLighthouseCAU/beacon/config"
@@ -16,11 +15,11 @@ import (
 func New(dir directory.Directory) *hardcoded.AllowCustom {
 	db, err := sqlx.Connect("postgres",
 		fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
-			config.GetString("DB_HOST", "localhost"),
-			config.GetInt("DB_PORT", 5432),
-			config.GetString("DB_USER", "postgres"),
-			config.GetString("DB_PASSWORD", "postgres"),
-			config.GetString("DB_NAME", "LHP")))
+			config.LegacyDatabaseHost,
+			config.LegacyDatabasePort,
+			config.LegacyDatabaseUser,
+			config.LegacyDatabasePassword,
+			config.LegacyDatabaseName))
 	if err != nil {
 		panic(err)
 	}
@@ -28,7 +27,7 @@ func New(dir directory.Directory) *hardcoded.AllowCustom {
 		Users:  make(map[string]string),
 		Admins: make(map[string]bool),
 	}
-	go util.RunEvery(config.GetDuration("DB_QUERY_PERIOD", 1*time.Second), func() {
+	go util.RunEvery(config.DatabaseQueryInterval, func() {
 		queryDb(db, &a, dir)
 	})
 	return &a

@@ -10,8 +10,15 @@ import (
 )
 
 var (
-	jwtPrivateKey []byte = []byte(config.GetString("JWT_PRIVATE_KEY", NewRandomKey()))
+	jwtPrivateKey []byte = setJWTPrivateKey()
 )
+
+func setJWTPrivateKey() []byte {
+	if len(config.JWTPrivateKey) > 0 {
+		return config.JWTPrivateKey
+	}
+	return NewRandomKey()
+}
 
 // --- JWT Authentication ---
 
@@ -34,10 +41,10 @@ func ValidateJWT(tokenStr string) (map[string]any, error) {
 }
 
 // Generates a random 32 byte key in case the config is empty (no one being able to authenticate is better than an empty key)
-func NewRandomKey() string {
+func NewRandomKey() []byte {
 	key := make([]byte, 32)
 	if _, err := rand.Read(key); err != nil {
 		log.Println(err)
 	}
-	return string(key)
+	return key
 }
