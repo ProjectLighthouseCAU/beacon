@@ -11,7 +11,6 @@ var (
 	// websocket
 	WebsocketHost            string = GetString("WEBSOCKET_HOST", "127.0.0.1")
 	WebsocketPort            int    = GetInt("WEBSOCKET_PORT", 3000)
-	WebsocketRoute           string = GetString("WEBSOCKET_ROUTE", "/websocket")
 	WebsocketReadBufferSize  int    = GetInt("WEBSOCKET_READ_BUFFER_SIZE", 0)
 	WebsocketWriteBufferSize int    = GetInt("WEBSOCKET_WRITE_BUFFER_SIZE", 0)
 	WebsocketReadLimit       int    = GetInt("WEBSOCKET_READ_LIMIT", 2048)
@@ -26,13 +25,13 @@ var (
 	UsersConfigJson  string = GetString("USERS_CONFIG_JSON", "{}")
 	AdminsConfigJson string = GetString("ADMINS_CONFIG_JSON", "{}")
 	// heimdall
-	HeimdallAdminRolename  string = GetString("HEIMDALL_ADMIN_ROLENAME", "admin")
-	HeimdallDeployRolename string = GetString("HEIMDALL_DEPLOY_ROLENAME", "deploy")
-	HeimdallRedisHost      string = GetString("REDIS_HOST", "127.0.0.1")
-	HeimdallRedisPort      int    = GetInt("REDIS_PORT", 6379)
-	HeimdallRedisUser      string = GetString("REDIS_USER", "")
-	HeimdallRedisPassword  string = GetString("REDIS_PASSWORD", "")
-	HeimdallRedisDBNumber  int    = GetInt("REDIS_DB_NUMBER", 0)
+	HeimdallAdminRolename   string = GetString("HEIMDALL_ADMIN_ROLENAME", "admin")
+	HeimdallDeployRolename  string = GetString("HEIMDALL_DEPLOY_ROLENAME", "deploy")
+	HeimdallAuthenticateURL string = GetString("HEIMDALL_AUTHENTICATE_URL", "https://lighthouse.uni-kiel.de/api/internal/authenticate")
+	HeimdallUsernamesURL    string = GetString("HEIMDALL_USERNAMES_URL", "https://lighthouse.uni-kiel.de/api/internal/users")
+	BeaconUsername          string = GetString("BEACON_USERNAME", "")
+	BeaconToken             string = GetString("BEACON_TOKEN", "")
+
 	// legacy
 	LegacyDatabaseHost     string        = GetString("DB_HOST", "localhost")
 	LegacyDatabasePort     int           = GetInt("DB_PORT", 5432)

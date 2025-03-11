@@ -1,7 +1,10 @@
 package types
 
 import (
+	"context"
 	"log"
+	"sync"
+	"time"
 
 	"github.com/ProjectLighthouseCAU/beacon/directory"
 	"github.com/tinylib/msgp/msgp"
@@ -14,17 +17,32 @@ type Client struct {
 	Send func(*Response) error
 
 	streams map[reid]map[path]chan any
+
+	authCache                   map[string]*AuthCacheEntry
+	authCacheLock               sync.RWMutex
+	authCacheUpdaterCancelFuncs map[string]context.CancelFunc
 }
 
 type reid string // using REID (msgp.Raw) which is a []byte converted to string as map key
 type path string // using PATH ([]string) converted to msgpack []byte converted to string as map key
 
+type AuthCacheEntry struct {
+	Token     string
+	ExpiresAt time.Time
+	Permanent bool
+	Roles     []string
+}
+
 func NewClient(send func(*Response) error) *Client {
 	return &Client{
-		Send:    send,
-		streams: make(map[reid]map[path]chan any, 0),
+		Send:                        send,
+		streams:                     make(map[reid]map[path]chan any),
+		authCache:                   make(map[string]*AuthCacheEntry),
+		authCacheUpdaterCancelFuncs: make(map[string]context.CancelFunc),
 	}
 }
+
+// helpers
 
 func reidToMapKey(REID msgp.Raw) reid {
 	return reid(REID)
@@ -46,6 +64,8 @@ func pathFromMapKey(p path) []string {
 	}
 	return PATH
 }
+
+// streams
 
 func (c *Client) AddStream(REID msgp.Raw, PATH []string, stream chan any) {
 	reidKey := reidToMapKey(REID)
@@ -85,15 +105,59 @@ func (c *Client) RemoveStream(reid msgp.Raw, path []string) {
 	}
 }
 
+// auth cache
+
+func (c *Client) IsAuthCacheEmpty() bool {
+	c.authCacheLock.RLock()
+	defer c.authCacheLock.RUnlock()
+	return len(c.authCache) == 0
+}
+
+func (c *Client) LookupAuthCache(username string) *AuthCacheEntry {
+	c.authCacheLock.RLock()
+	defer c.authCacheLock.RUnlock()
+	return c.authCache[username]
+}
+
+func (c *Client) SetAuthCacheEntry(username string, entry *AuthCacheEntry) {
+	c.authCacheLock.Lock()
+	defer c.authCacheLock.Unlock()
+	c.authCache[username] = entry
+}
+
+func (c *Client) DeleteAuthCacheEntry(username string) {
+	c.authCacheLock.Lock()
+	defer c.authCacheLock.Unlock()
+	delete(c.authCache, username)
+}
+
+func (c *Client) AddAuthCacheUpdaterCancelFunc(username string, cancel context.CancelFunc) {
+	c.authCacheLock.Lock()
+	c.authCacheUpdaterCancelFuncs[username] = cancel
+	c.authCacheLock.Unlock()
+}
+
+func (c *Client) RemoveAuthCacheUpdaterCancelFunc(username string) {
+	c.authCacheLock.Lock()
+	delete(c.authCacheUpdaterCancelFuncs, username)
+	c.authCacheLock.Unlock()
+}
+
 func (c *Client) Disconnect(dir directory.Directory) {
 	// Stop all streams of this client
 	for _, streams := range c.streams {
 		for path, stream := range streams {
 			resource, err := dir.GetResource(pathFromMapKey(path))
 			if err != nil {
-				return
+				continue
 			}
-			resource.StopStream(stream)
+			_ = resource.StopStream(stream)
 		}
 	}
+	// Stop all cache updaters of this client
+	c.authCacheLock.Lock()
+	for _, cancel := range c.authCacheUpdaterCancelFuncs {
+		cancel()
+	}
+	c.authCacheLock.Unlock()
 }

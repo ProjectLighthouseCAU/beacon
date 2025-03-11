@@ -92,7 +92,7 @@ func main() {
 
 	handler := handler.New(directory, authImpl)
 
-	websocketEndpoint := websocket.CreateEndpoint(config.WebsocketHost, config.WebsocketPort, config.WebsocketRoute, handler)
+	websocketEndpoint := websocket.CreateEndpoint(config.WebsocketHost, config.WebsocketPort, authImpl, handler)
 	endpoints := []network.Endpoint{websocketEndpoint}
 
 	static.StartFileserver()

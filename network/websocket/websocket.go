@@ -1,12 +1,14 @@
 package websocket
 
 import (
+	"context"
+	"fmt"
 	"log"
 	"net/http"
-	"strconv"
 	"sync"
 	"time"
 
+	"github.com/ProjectLighthouseCAU/beacon/auth"
 	"github.com/ProjectLighthouseCAU/beacon/config"
 	"github.com/ProjectLighthouseCAU/beacon/handler"
 	"github.com/ProjectLighthouseCAU/beacon/network"
@@ -25,23 +27,24 @@ type Endpoint struct { // extends BaseEndpoint implements network.Endpoint (remi
 var _ network.Endpoint = (*Endpoint)(nil) // implements
 
 // CreateEndpoint initiates the websocket endpoint (blocking call)
-func CreateEndpoint(host string, port int, route string, handler *handler.Handler) *Endpoint {
+func CreateEndpoint(host string, port int, auth auth.Auth, handler *handler.Handler) *Endpoint {
 
 	defer func() { // recover from any panic during initialization and retry
 		if r := recover(); r != nil {
 			log.Println("Error while creating websocket endpoint: ", r)
 			log.Println("Retrying in 3 seconds...")
 			time.Sleep(3 * time.Second)
-			CreateEndpoint(host, port, route, handler)
+			CreateEndpoint(host, port, auth, handler)
 		}
 	}()
 
 	ep := &Endpoint{
 		BaseEndpoint: network.BaseEndpoint{
 			Type:    network.Websocket,
+			Auth:    auth,
 			Handler: handler,
 		},
-		httpServer: &http.Server{Addr: host + ":" + strconv.Itoa(port)},
+		httpServer: &http.Server{Addr: fmt.Sprintf("%s:%d", host, port)},
 		upgrader: websocket.Upgrader{
 			ReadBufferSize:  config.WebsocketReadBufferSize,
 			WriteBufferSize: config.WebsocketWriteBufferSize,
@@ -50,28 +53,34 @@ func CreateEndpoint(host string, port int, route string, handler *handler.Handle
 			},
 		},
 	}
-	ep.httpServer.Handler = getWebsocketHandler(ep)
+	ep.httpServer.Handler = ep.getWebsocketHandler()
 	go func() {
 		if err := ep.httpServer.ListenAndServe(); err != http.ErrServerClosed {
 			log.Panicf("ListenAndServe returned: %v", err)
 		}
 	}()
 
-	url := "ws://" + host + ":" + strconv.Itoa(port) + route
-	log.Printf("WebSocket Endpoint created: " + url)
+	log.Printf("WebSocket Endpoint created: ws://%s:%d", host, port)
 
 	return ep
 }
 
 // Close closes the WebSocket Endpoint
 func (ep *Endpoint) Close() {
-	ep.httpServer.Close()
-	log.Println("Websocket Endpoint closed")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	err := ep.httpServer.Shutdown(ctx)
+	if err != nil {
+		log.Println("Failed to gracefully shutdown websocket endpoint:", err)
+		ep.httpServer.Close()
+		log.Println("Forcefully closed websocket endpoint")
+	}
+	log.Println("Websocket endpoint closed")
 }
 
 // The websocket handler upgrades HTTP to WebSocket connections, creates a new Client for that connection
 // and then reads and decodes received packets into a Request before forwarding to the handler package.
-func getWebsocketHandler(ep *Endpoint) http.HandlerFunc {
+func (ep *Endpoint) getWebsocketHandler() http.HandlerFunc {
 	return func(responseWriter http.ResponseWriter, request *http.Request) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -128,13 +137,20 @@ func getWebsocketHandler(ep *Endpoint) http.HandlerFunc {
 				return
 			}
 
-			requestAuthorized := ep.Handler.HandleRequest(client, &request)
-
-			// TODO: only disconnect on 401 not 403!
-			if !requestAuthorized {
-				disconnectClient()
-				return
+			// authentication and authorization
+			if ok, code := ep.Auth.IsAuthorized(client, &request); !ok {
+				response := types.NewResponse().Reid(request.REID).Rnum(code).Build()
+				client.Send(response)
+				// TODO: decide when to disconnect client connection (without any authentication after timeout?)
+				// if code == http.StatusUnauthorized {
+				// 	disconnectClient()
+				// 	return
+				// }
+				continue
 			}
+			// call handler
+			ep.Handler.HandleRequest(client, &request)
+
 		}
 	}
 }

@@ -50,13 +50,6 @@ func (handler *Handler) HandleRequest(client *types.Client, request *types.Reque
 		}
 	}()
 
-	// Authentication and Authorization
-	if ok, code := handler.auth.IsAuthorized(client, request); !ok {
-		response := types.NewResponse().Reid(request.REID).Rnum(code).Build()
-		client.Send(response)
-		return false
-	}
-
 	var response *types.Response
 
 	// create resource in case of POST
