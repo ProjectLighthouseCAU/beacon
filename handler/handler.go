@@ -13,11 +13,11 @@ import (
 )
 
 type Handler struct {
-	directory directory.Directory
+	directory directory.Directory[resource.Resource]
 	auth      auth.Auth
 }
 
-func New(dir directory.Directory, a auth.Auth) *Handler {
+func New(dir directory.Directory[resource.Resource], a auth.Auth) *Handler {
 	if dir == nil {
 		panic("cannot create handler without directory (nil)")
 	}
@@ -30,7 +30,7 @@ func New(dir directory.Directory, a auth.Auth) *Handler {
 	}
 }
 
-func (handler *Handler) GetDirectory() directory.Directory {
+func (handler *Handler) GetDirectory() directory.Directory[resource.Resource] {
 	return handler.directory
 }
 

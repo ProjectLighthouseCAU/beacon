@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ProjectLighthouseCAU/beacon/directory"
+	"github.com/ProjectLighthouseCAU/beacon/resource"
 	"github.com/tinylib/msgp/msgp"
 	"github.com/vmihailenco/msgpack"
 )
@@ -143,7 +144,7 @@ func (c *Client) RemoveAuthCacheUpdaterCancelFunc(username string) {
 	c.authCacheLock.Unlock()
 }
 
-func (c *Client) Disconnect(dir directory.Directory) {
+func (c *Client) Disconnect(dir directory.Directory[resource.Resource]) {
 	// Stop all streams of this client
 	for _, streams := range c.streams {
 		for path, stream := range streams {

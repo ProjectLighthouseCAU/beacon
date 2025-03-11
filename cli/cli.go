@@ -7,11 +7,12 @@ import (
 	"strings"
 
 	"github.com/ProjectLighthouseCAU/beacon/directory"
+	"github.com/ProjectLighthouseCAU/beacon/resource"
 	"github.com/tinylib/msgp/msgp"
 	"github.com/vmihailenco/msgpack"
 )
 
-func RunCLI(stop chan struct{}, directory directory.Directory, snapshotPath string) {
+func RunCLI(stop chan struct{}, directory directory.Directory[resource.Resource], snapshotPath string) {
 	reader := bufio.NewReader(os.Stdin)
 Loop:
 	for {

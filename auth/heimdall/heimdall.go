@@ -14,6 +14,7 @@ import (
 	"github.com/ProjectLighthouseCAU/beacon/auth"
 	"github.com/ProjectLighthouseCAU/beacon/config"
 	"github.com/ProjectLighthouseCAU/beacon/directory"
+	"github.com/ProjectLighthouseCAU/beacon/resource"
 	"github.com/ProjectLighthouseCAU/beacon/types"
 )
 
@@ -40,7 +41,7 @@ var (
 	errKeepAliveMessage = errors.New("received keep alive message")
 )
 
-func New(dir directory.Directory) *HeimdallAuth {
+func New(dir directory.Directory[resource.Resource]) *HeimdallAuth {
 	auth := HeimdallAuth{
 		client: http.DefaultClient,
 	}
@@ -57,7 +58,7 @@ func New(dir directory.Directory) *HeimdallAuth {
 	return &auth
 }
 
-func (a *HeimdallAuth) directoryUpdater(dir directory.Directory) error {
+func (a *HeimdallAuth) directoryUpdater(dir directory.Directory[resource.Resource]) error {
 	req, err := http.NewRequest("GET", config.HeimdallUsernamesURL, nil)
 	if err != nil {
 		return err

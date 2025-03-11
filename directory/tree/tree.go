@@ -14,7 +14,7 @@ import (
 
 // ### Directory Type ###
 
-var _ directoryPkg.Directory = (*directory)(nil) // directory type implements Directory interface
+var _ directoryPkg.Directory[resource.Resource] = (*directory)(nil) // directory type implements Directory interface
 
 type directory struct {
 	root               tree

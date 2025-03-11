@@ -7,15 +7,16 @@ import (
 
 	"github.com/ProjectLighthouseCAU/beacon/config"
 	"github.com/ProjectLighthouseCAU/beacon/directory"
+	"github.com/ProjectLighthouseCAU/beacon/resource"
 )
 
 type Snapshotter struct {
-	directory directory.Directory
+	directory directory.Directory[resource.Resource]
 	stop      chan struct{}
 	done      chan struct{}
 }
 
-func CreateSnapshotter(d directory.Directory) *Snapshotter {
+func CreateSnapshotter(d directory.Directory[resource.Resource]) *Snapshotter {
 	return &Snapshotter{
 		directory: d,
 		stop:      make(chan struct{}),

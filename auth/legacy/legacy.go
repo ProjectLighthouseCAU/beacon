@@ -6,13 +6,14 @@ import (
 	"github.com/ProjectLighthouseCAU/beacon/auth/hardcoded"
 	"github.com/ProjectLighthouseCAU/beacon/config"
 	"github.com/ProjectLighthouseCAU/beacon/directory"
+	"github.com/ProjectLighthouseCAU/beacon/resource"
 	"github.com/ProjectLighthouseCAU/beacon/util"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"golang.org/x/exp/maps"
 )
 
-func New(dir directory.Directory) *hardcoded.AllowCustom {
+func New(dir directory.Directory[resource.Resource]) *hardcoded.AllowCustom {
 	db, err := sqlx.Connect("postgres",
 		fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
 			config.LegacyDatabaseHost,
@@ -56,7 +57,7 @@ WHERE users.is_admin
 OR user_groups.groupname = 'admin'`
 )
 
-func queryDb(db *sqlx.DB, a *hardcoded.AllowCustom, dir directory.Directory) {
+func queryDb(db *sqlx.DB, a *hardcoded.AllowCustom, dir directory.Directory[resource.Resource]) {
 	users := []User{}
 	admins := []string{}
 
