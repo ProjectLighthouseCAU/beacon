@@ -15,6 +15,7 @@ import (
 	"github.com/ProjectLighthouseCAU/beacon/config"
 	"github.com/ProjectLighthouseCAU/beacon/directory"
 	"github.com/ProjectLighthouseCAU/beacon/resource"
+	"github.com/ProjectLighthouseCAU/beacon/resource/brokerless"
 	"github.com/ProjectLighthouseCAU/beacon/types"
 )
 
@@ -41,7 +42,7 @@ var (
 	errKeepAliveMessage = errors.New("received keep alive message")
 )
 
-func New(dir directory.Directory[resource.Resource]) *HeimdallAuth {
+func New(dir directory.Directory[resource.Resource[resource.Content]]) *HeimdallAuth {
 	auth := HeimdallAuth{
 		client: http.DefaultClient,
 	}
@@ -58,7 +59,7 @@ func New(dir directory.Directory[resource.Resource]) *HeimdallAuth {
 	return &auth
 }
 
-func (a *HeimdallAuth) directoryUpdater(dir directory.Directory[resource.Resource]) error {
+func (a *HeimdallAuth) directoryUpdater(dir directory.Directory[resource.Resource[resource.Content]]) error {
 	req, err := http.NewRequest("GET", config.HeimdallUsernamesURL, nil)
 	if err != nil {
 		return err
@@ -71,7 +72,7 @@ func (a *HeimdallAuth) directoryUpdater(dir directory.Directory[resource.Resourc
 	if resp.StatusCode != http.StatusOK {
 		return errors.New(resp.Status)
 	}
-	log.Println("Directory updater connected!")
+	log.Println("[HeimdallAuth] Directory updater connected!")
 	reader := bufio.NewReader(resp.Body)
 	for {
 		msg, err := a.readUsersUpdateMessage(reader)
@@ -81,13 +82,17 @@ func (a *HeimdallAuth) directoryUpdater(dir directory.Directory[resource.Resourc
 			}
 			return err
 		}
-		log.Printf("Received: %+v\n", msg)
+		if config.VerboseLogging {
+			log.Printf("[HeimdallAuth] Directory updater received: %+v\n", msg)
+		}
 		if msg.Removed {
 			_ = dir.Delete([]string{"user", msg.Username})
 			continue
 		}
-		_ = dir.CreateResource([]string{"user", msg.Username, "model"})
-		_ = dir.CreateResource([]string{"user", msg.Username, "input"})
+		paths := [][]string{{"user", msg.Username, "model"}, {"user", msg.Username, "input"}}
+		for _, path := range paths {
+			_ = dir.CreateLeaf(path, brokerless.Create(path, resource.Nil))
+		}
 	}
 }
 
@@ -104,7 +109,7 @@ func (a *HeimdallAuth) getAuthEntry(client *types.Client, username, token string
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Add("Authorization", config.BeaconToken)
+	req.Header.Add("Authorization", token)
 	resp, err := a.client.Do(req)
 	if err != nil {
 		return nil, err
@@ -264,7 +269,7 @@ func (a *HeimdallAuth) IsAuthorized(client *types.Client, request *types.Request
 
 	// allow users to read and write to /user/<own-username>/model and /user/<own-username>/input
 	// allow users to read /user/<other-username>/model and /user/<other-username>/input
-	if request.PATH[0] == "user" && (request.PATH[2] == "model" || request.PATH[2] == "input") && len(request.PATH) == 3 {
+	if len(request.PATH) == 3 && request.PATH[0] == "user" && (request.PATH[2] == "model" || request.PATH[2] == "input") {
 		if request.PATH[1] == username && auth.IsReadWriteOperation(request) {
 			return true, http.StatusOK
 		}

@@ -3,8 +3,9 @@ package types
 import (
 	"errors"
 
+	"github.com/ProjectLighthouseCAU/beacon/resource"
 	"github.com/tinylib/msgp/msgp"
-	"github.com/vmihailenco/msgpack"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 //go:generate msgp
@@ -27,4 +28,13 @@ func (r *Request) PayloadToPath() ([]string, error) {
 		return nil, errors.New("Payload is not a path ([]string)")
 	}
 	return path, nil
+}
+
+func (r *Request) PayloadToContent() resource.Content {
+	// special case: msgpack.Nil is decoded as empty array
+	// empty arrays are decoded as [0x90] (msgpack array header with length 0)
+	if len(r.PAYL) == 0 {
+		return resource.Nil
+	}
+	return (resource.Content)(r.PAYL)
 }

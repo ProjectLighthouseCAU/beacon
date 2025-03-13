@@ -2,18 +2,20 @@ package legacy
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/ProjectLighthouseCAU/beacon/auth/hardcoded"
 	"github.com/ProjectLighthouseCAU/beacon/config"
 	"github.com/ProjectLighthouseCAU/beacon/directory"
 	"github.com/ProjectLighthouseCAU/beacon/resource"
+	"github.com/ProjectLighthouseCAU/beacon/resource/brokerless"
 	"github.com/ProjectLighthouseCAU/beacon/util"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
-	"golang.org/x/exp/maps"
 )
 
-func New(dir directory.Directory[resource.Resource]) *hardcoded.AllowCustom {
+func New(dir directory.Directory[resource.Resource[resource.Content]]) *hardcoded.AllowCustom {
 	db, err := sqlx.Connect("postgres",
 		fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
 			config.LegacyDatabaseHost,
@@ -57,7 +59,7 @@ WHERE users.is_admin
 OR user_groups.groupname = 'admin'`
 )
 
-func queryDb(db *sqlx.DB, a *hardcoded.AllowCustom, dir directory.Directory[resource.Resource]) {
+func queryDb(db *sqlx.DB, a *hardcoded.AllowCustom, dir directory.Directory[resource.Resource[resource.Content]]) {
 	users := []User{}
 	admins := []string{}
 
@@ -75,7 +77,7 @@ func queryDb(db *sqlx.DB, a *hardcoded.AllowCustom, dir directory.Directory[reso
 
 	// get difference of user map and query result
 	addedUsers, removedUsers := util.DiffSlices(
-		maps.Keys(a.Users),
+		slices.AppendSeq(make([]string, 0, len(a.Users)), maps.Keys(a.Users)),
 		util.MapSlice(func(s User) string { return s.Username }, users))
 
 	// update user map
@@ -85,7 +87,8 @@ func queryDb(db *sqlx.DB, a *hardcoded.AllowCustom, dir directory.Directory[reso
 
 	// create resource for added user
 	for _, addedUser := range addedUsers {
-		dir.CreateResource([]string{"user", addedUser, "model"})
+		path := []string{"user", addedUser, "model"}
+		dir.CreateLeaf(path, brokerless.Create(path, resource.Nil))
 	}
 
 	// delete resource for removed user
@@ -94,7 +97,7 @@ func queryDb(db *sqlx.DB, a *hardcoded.AllowCustom, dir directory.Directory[reso
 		delete(a.Users, removedUser)
 	}
 	// add new admins
-	addedAdmins, removedAdmins := util.DiffSlices(maps.Keys(a.Admins), admins)
+	addedAdmins, removedAdmins := util.DiffSlices(slices.AppendSeq(make([]string, 0, len(a.Admins)), maps.Keys(a.Admins)), admins)
 	for _, admin := range addedAdmins {
 		a.Admins[admin] = true
 	}

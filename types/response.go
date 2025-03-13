@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/ProjectLighthouseCAU/beacon/resource"
 	"github.com/tinylib/msgp/msgp"
 )
 
@@ -41,8 +42,8 @@ func (r *Response) Meta(key any, value any) *Response {
 	r.META[key] = value
 	return r
 }
-func (r *Response) Payload(payl msgp.Raw) *Response {
-	r.PAYL = payl
+func (r *Response) Payload(payl resource.Content) *Response {
+	r.PAYL = (msgp.Raw)(payl)
 	return r
 }
 func (r *Response) Warning(warning string) *Response {

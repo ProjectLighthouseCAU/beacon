@@ -9,15 +9,15 @@ import (
 	"github.com/ProjectLighthouseCAU/beacon/directory"
 	"github.com/ProjectLighthouseCAU/beacon/resource"
 	"github.com/tinylib/msgp/msgp"
-	"github.com/vmihailenco/msgpack"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 // The Client type stores a Send function via which the server can send a Response to the client
 // as well as a Streams map that stores the active stream channels for each resource path.
 type Client struct {
-	Send func(*Response) error
-
-	streams map[reid]map[path]chan any
+	Send    func(*Response) error
+	ip      string
+	streams map[reid]map[path]chan resource.Content
 
 	authCache                   map[string]*AuthCacheEntry
 	authCacheLock               sync.RWMutex
@@ -34,13 +34,18 @@ type AuthCacheEntry struct {
 	Roles     []string
 }
 
-func NewClient(send func(*Response) error) *Client {
+func NewClient(ip string, send func(*Response) error) *Client {
 	return &Client{
 		Send:                        send,
-		streams:                     make(map[reid]map[path]chan any),
+		ip:                          ip,
+		streams:                     make(map[reid]map[path]chan resource.Content),
 		authCache:                   make(map[string]*AuthCacheEntry),
 		authCacheUpdaterCancelFuncs: make(map[string]context.CancelFunc),
 	}
+}
+
+func (c *Client) Ip() string {
+	return c.ip
 }
 
 // helpers
@@ -68,16 +73,16 @@ func pathFromMapKey(p path) []string {
 
 // streams
 
-func (c *Client) AddStream(REID msgp.Raw, PATH []string, stream chan any) {
+func (c *Client) AddStream(REID msgp.Raw, PATH []string, stream chan resource.Content) {
 	reidKey := reidToMapKey(REID)
 	_, ok := c.streams[reidKey]
 	if !ok {
-		c.streams[reidKey] = make(map[path]chan any)
+		c.streams[reidKey] = make(map[path]chan resource.Content)
 	}
 	c.streams[reidKey][pathToMapKey(PATH)] = stream
 }
 
-func (c *Client) GetStream(reid msgp.Raw, path []string) chan any {
+func (c *Client) GetStream(reid msgp.Raw, path []string) chan resource.Content {
 	streams, ok := c.streams[reidToMapKey(reid)]
 	if !ok {
 		return nil
@@ -144,11 +149,11 @@ func (c *Client) RemoveAuthCacheUpdaterCancelFunc(username string) {
 	c.authCacheLock.Unlock()
 }
 
-func (c *Client) Disconnect(dir directory.Directory[resource.Resource]) {
+func (c *Client) Disconnect(dir directory.Directory[resource.Resource[resource.Content]]) {
 	// Stop all streams of this client
 	for _, streams := range c.streams {
 		for path, stream := range streams {
-			resource, err := dir.GetResource(pathFromMapKey(path))
+			resource, err := dir.GetLeaf(pathFromMapKey(path))
 			if err != nil {
 				continue
 			}

@@ -3,12 +3,13 @@ package handler
 import (
 	"net/http"
 
+	"github.com/ProjectLighthouseCAU/beacon/resource"
 	"github.com/ProjectLighthouseCAU/beacon/types"
 )
 
 func (handler *Handler) unlink(request *types.Request) *types.Response {
 	response := types.NewResponse().Reid(request.REID)
-	resource, err := handler.directory.GetResource(request.PATH)
+	resrc, err := handler.directory.GetLeaf(request.PATH)
 	if err != nil { // resource not found
 		return response.Warning(err.Error()).Rnum(http.StatusNotFound).Build()
 	}
@@ -16,13 +17,13 @@ func (handler *Handler) unlink(request *types.Request) *types.Response {
 	if err != nil {
 		return response.Rnum(http.StatusBadRequest).Warning(err.Error()).Build()
 	}
-	source, err := handler.directory.GetResource(sourcePath)
+	source, err := handler.directory.GetLeaf(sourcePath)
 	if err != nil {
 		return response.Rnum(http.StatusNotFound).Warning(err.Error()).Build()
 	}
-	resp := resource.UnLink(source)
-	if resp.Err != nil {
-		response.Warning(resp.Err.Error())
+	err = resrc.UnLink(source)
+	if err != nil {
+		response.Warning(err.Error())
 	}
-	return response.Rnum(resp.Code).Build()
+	return response.Rnum(resource.ErrorToStatusCode(err)).Build()
 }
