@@ -27,7 +27,7 @@ type Directory[T any] interface {
 	ForEach(path []string, f func(path []string, value T) (bool, error)) error
 
 	// Returns the directories entries as a list
-	List(path []string) ([]string, error)
+	List(path []string) (map[string]any, error)
 	// Returns the directories subtree structure as a nested map
 	ListRecursive(path []string) (map[string]any, error)
 

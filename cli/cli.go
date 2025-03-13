@@ -92,7 +92,7 @@ Loop:
 				continue
 			}
 			fmt.Println(x)
-		case "list":
+		case "tree":
 			path := []string{}
 			if len(words) > 1 {
 				path = strings.Split(words[1], "/")
@@ -103,6 +103,27 @@ Loop:
 				continue
 			}
 			fmt.Print(s)
+		case "list":
+			path := []string{}
+			if len(words) > 1 {
+				path = strings.Split(words[1], "/")
+			}
+			m, err := directory.List(path)
+			if err != nil {
+				fmt.Println(err.Error())
+				continue
+			}
+			line := ""
+			for entry, x := range m {
+				line += entry
+				if x == nil {
+					line += "[r]"
+				} else {
+					line += "[d]"
+				}
+				line += "\n"
+			}
+			fmt.Print(line)
 		case "link":
 			dstPath := []string{}
 			srcPath := []string{}

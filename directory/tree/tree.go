@@ -3,8 +3,6 @@ package tree
 import (
 	"errors"
 	"fmt"
-	"maps"
-	"slices"
 	"strings"
 	"sync"
 
@@ -254,14 +252,23 @@ func forEach[T any](t tree, path []string, f func(path []string, value T) (bool,
 	return
 }
 
-func (d *directory[T]) List(path []string) ([]string, error) {
+func (d *directory[T]) List(path []string) (map[string]any, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 	n, err := d.getDirectory(path, false)
 	if err != nil {
 		return nil, err
 	}
-	return slices.AppendSeq(make([]string, 0, len(n.entries)), maps.Keys(n.entries)), nil
+	lst := make(map[string]any)
+	for name, t := range n.entries {
+		switch t.(type) {
+		case *node[T]:
+			lst[name] = make(map[string]any) // empty map indicates directory
+		case *leaf[T]:
+			lst[name] = nil // nil indicates leaf
+		}
+	}
+	return lst, nil
 }
 
 // List lists the contents of a directory by returning a recursively nested map of subdirectories.
