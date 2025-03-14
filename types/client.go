@@ -9,7 +9,6 @@ import (
 	"github.com/ProjectLighthouseCAU/beacon/directory"
 	"github.com/ProjectLighthouseCAU/beacon/resource"
 	"github.com/tinylib/msgp/msgp"
-	"github.com/vmihailenco/msgpack/v5"
 )
 
 // The Client type stores a Send function via which the server can send a Response to the client
@@ -55,7 +54,7 @@ func reidToMapKey(REID msgp.Raw) reid {
 }
 
 func pathToMapKey(PATH []string) path {
-	key, err := msgpack.Marshal(PATH)
+	key, err := Path(PATH).MarshalMsg(nil)
 	if err != nil {
 		log.Println(err)
 	}
@@ -63,8 +62,8 @@ func pathToMapKey(PATH []string) path {
 }
 
 func pathFromMapKey(p path) []string {
-	var PATH []string
-	err := msgpack.Unmarshal([]byte(p), &PATH)
+	var PATH Path
+	_, err := PATH.UnmarshalMsg([]byte(p))
 	if err != nil {
 		log.Println(err)
 	}

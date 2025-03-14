@@ -2,9 +2,12 @@ package cli
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/ProjectLighthouseCAU/beacon/config"
@@ -12,7 +15,7 @@ import (
 	"github.com/ProjectLighthouseCAU/beacon/resource"
 	"github.com/ProjectLighthouseCAU/beacon/resource/brokerless"
 	"github.com/ProjectLighthouseCAU/beacon/snapshot"
-	"github.com/vmihailenco/msgpack/v5"
+	"github.com/tinylib/msgp/msgp"
 )
 
 func RunCLI(stop chan struct{}, directory directory.Directory[resource.Resource[resource.Content]]) {
@@ -84,14 +87,33 @@ Loop:
 				continue
 			}
 			v := r.Get()
-			fmt.Println("Raw data:", hex.EncodeToString(v))
-			var x any
-			err = msgpack.Unmarshal(([]byte)(v), &x)
+			hex := hex.EncodeToString(v)
+			raw := ""
+			for c := range slices.Chunk([]byte(hex), 2) {
+				raw += string(c) + " "
+			}
+			raw = strings.TrimSpace(raw)
+			fmt.Printf("Raw data (hex): [%s]\n", raw)
+			if msgp.NextType(v) == msgp.BinType {
+				bs, _, err := msgp.ReadBytesBytes(v, nil)
+				if err != nil {
+					fmt.Println(err)
+					continue
+				}
+				fmt.Println(bs)
+				continue
+			}
+			buf := bytes.NewBuffer(make([]byte, 0, config.WebsocketReadBufferSize))
+			_, err = msgp.UnmarshalAsJSON(buf, v)
 			if err != nil {
 				fmt.Println(err)
 				continue
 			}
-			fmt.Println(x)
+			bs, err := io.ReadAll(buf)
+			if err != nil {
+				fmt.Println(err)
+			}
+			fmt.Println("Decoded (JSON):", string(bs))
 		case "tree":
 			path := []string{}
 			if len(words) > 1 {

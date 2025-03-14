@@ -5,7 +5,6 @@ import (
 
 	"github.com/ProjectLighthouseCAU/beacon/resource"
 	"github.com/tinylib/msgp/msgp"
-	"github.com/vmihailenco/msgpack/v5"
 )
 
 //go:generate msgp
@@ -22,8 +21,8 @@ type Request struct {
 
 // PayloadToPath interprets the payload as a path and returns the path as string[] (error if payload is not a path)
 func (r *Request) PayloadToPath() ([]string, error) {
-	var path []string
-	err := msgpack.Unmarshal(([]byte)(r.PAYL), &path)
+	var path Path
+	_, err := path.UnmarshalMsg([]byte(r.PAYL))
 	if err != nil {
 		return nil, errors.New("Payload is not a path ([]string)")
 	}

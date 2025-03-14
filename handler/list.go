@@ -4,12 +4,11 @@ import (
 	"net/http"
 
 	"github.com/ProjectLighthouseCAU/beacon/types"
-	"github.com/vmihailenco/msgpack/v5"
 )
 
 func (handler *Handler) list(request *types.Request) *types.Response {
 	response := types.NewResponse().Reid(request.REID)
-	var lst any
+	var lst types.Listing
 	var err error
 	nonrecursive, metaNonrecursiveExists := request.META["NONRECURSIVE"].(bool) // TODO: maybe inverse to keep backwards compatible
 	if metaNonrecursiveExists && nonrecursive {
@@ -23,7 +22,7 @@ func (handler *Handler) list(request *types.Request) *types.Response {
 			return response.Warning(err.Error()).Rnum(http.StatusNotFound).Build()
 		}
 	}
-	payl, err := msgpack.Marshal(lst)
+	payl, err := lst.MarshalMsg(nil)
 	if err != nil {
 		return response.Warning(err.Error()).Rnum(http.StatusInternalServerError).Build()
 	}

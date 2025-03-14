@@ -1,5 +1,3 @@
-// The main package handles incoming websocket connections and decodes received packets with msgpack.
-// The decoded packets are forwarded as server.Request to the server package.
 package main
 
 import (
