@@ -2,7 +2,6 @@ package websocket
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -20,9 +19,9 @@ import (
 
 // Endpoint defines a websocket endpoint
 type Endpoint struct { // extends BaseEndpoint implements network.Endpoint (reminder for Java-Dev)
+	network.BaseEndpoint // extends
 	httpServer           *http.Server
 	upgrader             websocket.Upgrader
-	network.BaseEndpoint // extends
 	connectedClients     map[*types.Client]*websocket.Conn
 	clientsLock          sync.Mutex
 }
@@ -73,17 +72,17 @@ func CreateEndpoint(host string, port int, auth auth.Auth, handler *handler.Hand
 func (ep *Endpoint) Close() {
 	log.Println("Closing websocket endpoint")
 	ep.clientsLock.Lock()
+	defer ep.clientsLock.Unlock()
 	for client, conn := range ep.connectedClients {
 		log.Println("Disconnecting ", client.Ip())
-		ep.disconnectClient(client, conn,
-			&websocket.CloseError{Code: websocket.CloseServiceRestart,
-				Text: closeCodeToCloseMsg[websocket.CloseServiceRestart]},
-			true)
+		// TODO: disconnect client gracefully using close-message
+		// with code CloseServiceRestart
+		ep.disconnectClient(client, conn, true)
 	}
+	// delete all connected clients for good measure
 	ep.connectedClients = make(map[*types.Client]*websocket.Conn)
-	ep.clientsLock.Unlock()
-	log.Println("Clients disconnected")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	log.Println("All clients disconnected")
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	err := ep.httpServer.Shutdown(ctx)
 	if err != nil {
@@ -94,53 +93,14 @@ func (ep *Endpoint) Close() {
 	log.Println("Websocket endpoint closed")
 }
 
-var closeCodeToCloseMsg = map[int]string{
-	websocket.CloseNormalClosure:   "Bye!",
-	websocket.CloseGoingAway:       "Bye!",
-	websocket.CloseProtocolError:   "Received malformed websocket frame",
-	websocket.CloseUnsupportedData: "Data type unsupported (must be binary frame)",
-	// websocket.CloseNoStatusReceived:        "", // connection broken
-	// websocket.CloseAbnormalClosure:         "", // connection broken
-	websocket.CloseInvalidFramePayloadData: "Please use our MessagePack based protocol!",
-	// websocket.ClosePolicyViolation:         "", // unused
-	websocket.CloseMessageTooBig:      fmt.Sprintf("Your message is too big! Limit: %d bytes", config.WebsocketReadLimit),
-	websocket.CloseMandatoryExtension: "This server does not support your requested websocket extension!",
-	websocket.CloseInternalServerErr:  "Oops, something bad happened on our side... sorry",
-	websocket.CloseServiceRestart:     "The server ist currently restarting, hang on tight and retry later!",
-	websocket.CloseTryAgainLater:      "Sorry, the server is temporarily unavailable. Please try again later!",
-	// websocket.CloseTLSHandshake:            "", // connection broken
-}
-
-func (ep *Endpoint) disconnectClient(client *types.Client, conn *websocket.Conn, err error, alreadyLocked bool) {
-	if err != nil {
-		closeErr := &websocket.CloseError{}
-		var closeMsg []byte
-		if errors.As(err, &closeErr) {
-			if msg, ok := closeCodeToCloseMsg[closeErr.Code]; ok {
-				log.Println("Sending close message:", closeErr.Code, closeErr.Text)
-				closeMsg = websocket.FormatCloseMessage(closeErr.Code, closeErr.Text+": "+msg)
-			} else {
-				log.Println("Sending close message:", websocket.CloseInternalServerErr, err.Error())
-				closeMsg = websocket.FormatCloseMessage(websocket.CloseInternalServerErr, err.Error())
-			}
-		} else {
-			log.Println("Sending close message:", websocket.CloseInternalServerErr, err.Error())
-			closeMsg = websocket.FormatCloseMessage(websocket.CloseInternalServerErr, err.Error())
-		}
-		deadline := time.Now().Add(time.Second)
-		err = conn.WriteControl(websocket.CloseMessage, closeMsg, deadline)
-		if err != nil {
-			log.Println("cannot write closemessage:", err)
-			// TODO: fix
-		}
-	}
+func (ep *Endpoint) disconnectClient(client *types.Client, conn *websocket.Conn, alreadyLocked bool) {
+	// TODO: using a re-entrant lock would be much nicer here
 	if !alreadyLocked {
 		ep.clientsLock.Lock()
 		delete(ep.connectedClients, client)
 		ep.clientsLock.Unlock()
 	}
 	client.Disconnect(ep.Handler.GetDirectory())
-	time.Sleep(1 * time.Second) //TODO: remove and find smarter way
 	conn.Close()
 	log.Println("Client disconnected: ", client.Ip())
 }
@@ -181,15 +141,15 @@ func (ep *Endpoint) getWebsocketHandler() http.HandlerFunc {
 		for {
 			messageType, payload, err := conn.ReadMessage()
 			if err != nil {
-				ep.disconnectClient(client, conn, err, false)
+				ep.disconnectClient(client, conn, false)
 				return
 			}
 
 			if messageType != websocket.BinaryMessage {
 				response := types.NewResponse().Reid([]byte{0}).Rnum(http.StatusBadRequest).Warning("Non binary-type message received, use websocket binary-type instead").Build()
 				client.Send(response)
-				closeCode := websocket.CloseUnsupportedData
-				ep.disconnectClient(client, conn, &websocket.CloseError{Code: closeCode, Text: closeCodeToCloseMsg[closeCode]}, false)
+				// TODO: send close-message: CloseUnsupportedData
+				ep.disconnectClient(client, conn, false)
 				return
 			}
 			request := types.Request{}
@@ -197,8 +157,8 @@ func (ep *Endpoint) getWebsocketHandler() http.HandlerFunc {
 			if err != nil {
 				response := types.NewResponse().Reid(request.REID).Rnum(http.StatusBadRequest).Warning("Could not deserialize request. Please make sure that you are using the Lighthouse-Protocol correctly").Build()
 				client.Send(response)
-				closeCode := websocket.CloseInvalidFramePayloadData
-				ep.disconnectClient(client, conn, &websocket.CloseError{Code: closeCode, Text: closeCodeToCloseMsg[closeCode]}, false)
+				// TODO: send close-message: CloseInvalidFramePayloadData
+				ep.disconnectClient(client, conn, false)
 				return
 			}
 
@@ -213,7 +173,6 @@ func (ep *Endpoint) getWebsocketHandler() http.HandlerFunc {
 				// }
 				continue
 			}
-			// call handler
 			ep.Handler.HandleRequest(client, &request)
 		}
 	}

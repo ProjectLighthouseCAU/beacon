@@ -22,6 +22,7 @@
 - DONE: overhaul snapshotting (make it more robust, maybe change "gob" AND "msgpack" to just "msgpack" -> cannot differentiate between directory and resource content)
 
 ## TODO
+- MAYBE/EASY: move from this TODO list to GitHub Issues :D
 - IMPORTANT/EASY: notify other project maintainers about API changes
   - LIST and LIST with RECURSIVE/NONRECURSIVE field in META
 
@@ -30,6 +31,8 @@
 - IMPORTANT/MEDIUM: test everything (resource DONE, directory, handler, websocket, auth, etc.)
 - IMPORTANT/DIFFICULT: websocket timeout after some time of no or only invalid, or unauthorized request
 
+- UNIMPORTANT/UNEXPECTEDLY-DIFFICULT:D gracefully close websocket connection with correct/suitable close-message and timeout (we might have to switch websocket libraries from gorilla/websocket to coder/websocket for easier close handling) AND also disconnect open connections on server shutdown/close
+- UNIMPORTANT/EASY: maybe use "puzpuzpuz/xsync" library for more performant RWLock, sync.Map and thread-safe queues (-> benchmark to test performance difference)
 - UNIMPORTANT/MEDIUM: export prometheus metrics
 - UNIMPORTANT/DIFFICULT: fine grained access control
 - UNIMPORTANT/MEDIUM: TCP endpoint implementation (solve length header problem with streaming deserialization with msgp)
