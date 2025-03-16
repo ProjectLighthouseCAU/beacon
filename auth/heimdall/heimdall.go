@@ -282,5 +282,10 @@ func (a *HeimdallAuth) IsAuthorized(client *types.Client, request *types.Request
 		return true, http.StatusOK
 	}
 
+	// allow users to list directories
+	if request.VERB == "LIST" {
+		return true, http.StatusOK
+	}
+
 	return false, http.StatusForbidden
 }
