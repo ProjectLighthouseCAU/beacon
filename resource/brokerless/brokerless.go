@@ -1,49 +1,43 @@
 package brokerless
 
 import (
-	"errors"
 	"log"
 	"strings"
 	"sync"
 
 	"github.com/ProjectLighthouseCAU/beacon/config"
 	"github.com/ProjectLighthouseCAU/beacon/resource"
-	"github.com/tinylib/msgp/msgp"
 )
 
-type brokerless struct {
+type brokerless[T any] struct {
 	path []string
 
-	streams     map[chan any]struct{}
+	streams     map[chan T]struct{}
 	streamsLock sync.Mutex
 
-	links     map[*brokerless]struct{}
+	links     map[*brokerless[T]]struct{}
 	linksLock sync.Mutex
 
-	value     any
+	value     T // exported for serialization during snapshotting
 	valueLock sync.RWMutex
 }
 
-var _ resource.Resource = (*brokerless)(nil)
+var _ resource.Resource[resource.Content] = (*brokerless[resource.Content])(nil)
 
-var (
-	streamChanSize = config.GetInt("RESOURCE_STREAM_CHANNEL_SIZE", 10)
-)
-
-func Create(path []string) resource.Resource {
-	return &brokerless{
+func Create[T any](path []string, initialValue T) resource.Resource[T] {
+	return &brokerless[T]{
 		path:        path,
-		streams:     make(map[chan any]struct{}),
+		streams:     make(map[chan T]struct{}),
 		streamsLock: sync.Mutex{},
-		links:       make(map[*brokerless]struct{}),
+		links:       make(map[*brokerless[T]]struct{}),
 		linksLock:   sync.Mutex{},
-		value:       msgp.Raw{},
+		value:       initialValue,
 		valueLock:   sync.RWMutex{},
 	}
 }
 
 // Close implements resource.Resource.
-func (r *brokerless) Close() resource.Response {
+func (r *brokerless[T]) Close() {
 	r.streamsLock.Lock()
 	defer r.streamsLock.Unlock()
 
@@ -58,29 +52,29 @@ func (r *brokerless) Close() resource.Response {
 	for other := range r.links {
 		delete(r.links, other)
 	}
-
-	return resource.Response{Code: 200, Err: nil}
 }
 
 // Get implements resource.Resource.
-func (r *brokerless) Get() (any, resource.Response) {
+func (r *brokerless[T]) Get() T {
 	r.valueLock.RLock()
 	defer r.valueLock.RUnlock()
-	return r.value, resource.Response{Code: 200, Err: nil}
+	return r.value
 }
 
 // Put implements resource.Resource.
-func (r *brokerless) Put(value any) resource.Response {
+func (r *brokerless[T]) Put(value T) error {
 	r.valueLock.Lock()
 	r.value = value
 	r.valueLock.Unlock()
 	// TODO: if all streams and links should receive the values in the same order, we need to lock them
+	anyStreamSkipped := false
 	for stream := range r.streams {
 		select {
 		case stream <- value:
 		default:
+			anyStreamSkipped = true
 			// skip stream if channel is full
-			if config.GetBool("VERBOSE_LOGGING", false) {
+			if config.VerboseLogging {
 				log.Printf("[Warning] A stream channel of %s is full and was skipped by the brokerless\n", strings.Join(r.path, "/"))
 			}
 		}
@@ -88,61 +82,64 @@ func (r *brokerless) Put(value any) resource.Response {
 	for link := range r.links {
 		link.Put(value)
 	}
-	return resource.Response{Code: 200, Err: nil}
+	if anyStreamSkipped {
+		return resource.ErrWarnStreamSkipped
+	}
+	return nil
 }
 
 // Stream implements resource.Resource.
-func (r *brokerless) Stream() (chan any, resource.Response) {
+func (r *brokerless[T]) Stream() chan T {
 	r.streamsLock.Lock()
 	defer r.streamsLock.Unlock()
 
-	stream := make(chan any, streamChanSize)
+	stream := make(chan T, config.ResourceStreamChannelSize)
 	r.streams[stream] = struct{}{}
-	return stream, resource.Response{Code: 200, Err: nil}
+	return stream
 }
 
 // StopStream implements resource.Resource.
-func (r *brokerless) StopStream(stream chan any) resource.Response {
+func (r *brokerless[T]) StopStream(stream chan T) error {
 	r.streamsLock.Lock()
 	defer r.streamsLock.Unlock()
 
 	_, ok := r.streams[stream]
 	if !ok {
-		return resource.Response{Code: 404, Err: errors.New("stream does not exist")}
+		return resource.ErrStreamNotFound
 	}
 	close(stream)
 	delete(r.streams, stream)
-	return resource.Response{Code: 200, Err: nil}
+	return nil
 }
 
 // Link implements resource.Resource.
-func (r *brokerless) Link(otherResource resource.Resource) resource.Response {
-	other, ok := otherResource.(*brokerless)
+func (r *brokerless[T]) Link(otherResource resource.Resource[T]) error {
+	other, ok := otherResource.(*brokerless[T])
 	if !ok {
-		return resource.Response{Code: 500, Err: errors.New("link resource must be of the same type as this resource (brokerless)")}
+		return resource.ErrWrongResourceImpl
 	}
 
 	other.linksLock.Lock()
 	defer other.linksLock.Unlock()
 
 	if _, ok := other.links[r]; ok {
-		return resource.Response{Code: 200, Err: errors.New("link already exists")}
+		return resource.ErrWarnLinkExists
 	}
 
 	if r.linksTo(other) {
-		return resource.Response{Code: 409, Err: errors.New("link causes a loop")}
+		return resource.ErrLinkLoop
 	}
 
 	other.links[r] = struct{}{}
 
-	return resource.Response{Code: 200, Err: nil}
+	return nil
 }
 
 // UnLink implements resource.Resource.
-func (r *brokerless) UnLink(otherResource resource.Resource) resource.Response {
-	other, ok := otherResource.(*brokerless)
+func (r *brokerless[T]) UnLink(otherResource resource.Resource[T]) error {
+	other, ok := otherResource.(*brokerless[T])
 	if !ok {
-		return resource.Response{Code: 500, Err: errors.New("link resource must be of the same type as this resource (brokerless)")}
+		return resource.ErrWrongResourceImpl
 	}
 
 	other.linksLock.Lock()
@@ -150,16 +147,16 @@ func (r *brokerless) UnLink(otherResource resource.Resource) resource.Response {
 
 	_, ok = other.links[r]
 	if !ok {
-		return resource.Response{Code: 404, Err: errors.New("link does not exist")}
+		return resource.ErrLinkNotFound
 	}
 
 	delete(other.links, r)
 
-	return resource.Response{Code: 200, Err: nil}
+	return nil
 }
 
 // checks whether a resource links to another resource (using depth first search)
-func (r *brokerless) linksTo(other *brokerless) bool {
+func (r *brokerless[T]) linksTo(other *brokerless[T]) bool {
 	if other == r {
 		return true
 	}

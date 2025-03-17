@@ -4,48 +4,39 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
-	"github.com/ProjectLighthouseCAU/beacon/auth"
 	"github.com/ProjectLighthouseCAU/beacon/config"
 	"github.com/ProjectLighthouseCAU/beacon/directory"
 	"github.com/ProjectLighthouseCAU/beacon/resource"
 	"github.com/ProjectLighthouseCAU/beacon/types"
 )
 
-var (
-	verbose = config.GetBool("VERBOSE_LOGGING", false)
-)
-
 type Handler struct {
-	directory directory.Directory
-	auth      auth.Auth
+	directory directory.Directory[resource.Resource[resource.Content]]
 }
 
-func New(dir directory.Directory, a auth.Auth) *Handler {
+func New(dir directory.Directory[resource.Resource[resource.Content]]) *Handler {
 	if dir == nil {
 		panic("cannot create handler without directory (nil)")
 	}
-	if a == nil {
-		panic("cannot create handler without auth (nil)")
-	}
 	return &Handler{
 		directory: dir,
-		auth:      a,
 	}
 }
 
-func (handler *Handler) GetDirectory() directory.Directory {
+func (handler *Handler) GetDirectory() directory.Directory[resource.Resource[resource.Content]] {
 	return handler.directory
 }
 
 func (handler *Handler) Close() {
-	handler.directory.ForEach(func(res resource.Resource) (bool, error) {
+	handler.directory.ForEach([]string{}, func(path []string, res resource.Resource[resource.Content]) (bool, error) {
 		res.Close()
 		return true, nil
 	})
 }
 
-func (handler *Handler) HandleRequest(client *types.Client, request *types.Request) bool {
+func (handler *Handler) HandleRequest(client *types.Client, request *types.Request) {
 	defer func() { // recover from any panic while handling the request to prevent complete server crash
 		if r := recover(); r != nil {
 			log.Println("Recovering from panic in handler:", r)
@@ -54,15 +45,17 @@ func (handler *Handler) HandleRequest(client *types.Client, request *types.Reque
 		}
 	}()
 
-	// Authentication and Authorization
-	if ok, code := handler.auth.IsAuthorized(client, request); !ok {
-		response := types.NewResponse().Reid(request.REID).Rnum(code).Build()
-		client.Send(response)
-		return false
+	// check if path contains "/" (must currently be enforced for snapshotting)
+	for _, pathElement := range request.PATH {
+		if strings.Contains(pathElement, "/") {
+			warning := "path must not contain \"/\""
+			response := types.NewResponse().Reid(request.REID).Rnum(http.StatusBadRequest).Warning(warning).Build()
+			client.Send(response)
+			return
+		}
 	}
 
 	var response *types.Response
-
 	// create resource in case of POST
 	switch request.VERB {
 	case "POST": // POST = CREATE + PUT
@@ -90,12 +83,11 @@ func (handler *Handler) HandleRequest(client *types.Client, request *types.Reque
 	default:
 		response = types.NewResponse().Reid(request.REID).Rnum(http.StatusMethodNotAllowed).Build()
 		client.Send(response)
-		return false
+		return
 	}
 
-	if verbose {
+	if config.VerboseLogging {
 		log.Printf("\nRequest: %+v\nResponse: %+v\n", request, response)
 	}
 	client.Send(response)
-	return true
 }

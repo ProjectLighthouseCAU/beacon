@@ -1,6 +1,9 @@
 package network
 
-import "github.com/ProjectLighthouseCAU/beacon/handler"
+import (
+	"github.com/ProjectLighthouseCAU/beacon/auth"
+	"github.com/ProjectLighthouseCAU/beacon/handler"
+)
 
 type EndpointType uint16 // Enum
 const (
@@ -15,6 +18,7 @@ const (
 type BaseEndpoint struct {
 	Type    EndpointType
 	Handler *handler.Handler
+	Auth    auth.Auth
 }
 
 // Endpoint is the interface which a specific endpoint has to implement

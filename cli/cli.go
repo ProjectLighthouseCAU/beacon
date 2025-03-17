@@ -2,16 +2,23 @@ package cli
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
+	"slices"
 	"strings"
 
+	"github.com/ProjectLighthouseCAU/beacon/config"
 	"github.com/ProjectLighthouseCAU/beacon/directory"
+	"github.com/ProjectLighthouseCAU/beacon/resource"
+	"github.com/ProjectLighthouseCAU/beacon/resource/brokerless"
+	"github.com/ProjectLighthouseCAU/beacon/snapshot"
 	"github.com/tinylib/msgp/msgp"
-	"github.com/vmihailenco/msgpack"
 )
 
-func RunCLI(stop chan struct{}, directory directory.Directory, snapshotPath string) {
+func RunCLI(stop chan struct{}, directory directory.Directory[resource.Resource[resource.Content]]) {
 	reader := bufio.NewReader(os.Stdin)
 Loop:
 	for {
@@ -41,7 +48,7 @@ Loop:
 			if len(words) > 1 {
 				path = strings.Split(words[1], "/")
 			}
-			err := directory.CreateResource(path)
+			err := directory.CreateLeaf(path, brokerless.Create(path, resource.Nil))
 			if err != nil {
 				fmt.Println(err)
 				continue
@@ -74,25 +81,40 @@ Loop:
 			if len(words) > 1 {
 				path = strings.Split(words[1], "/")
 			}
-			r, err := directory.GetResource(path)
+			r, err := directory.GetLeaf(path)
 			if err != nil {
 				fmt.Println(err)
 				continue
 			}
-			v, res := r.Get()
-			if res.Err != nil {
-				fmt.Println(err)
+			v := r.Get()
+			hex := hex.EncodeToString(v)
+			raw := ""
+			for c := range slices.Chunk([]byte(hex), 2) {
+				raw += string(c) + " "
+			}
+			raw = strings.TrimSpace(raw)
+			fmt.Printf("Raw data (hex): [%s]\n", raw)
+			if msgp.NextType(v) == msgp.BinType {
+				bs, _, err := msgp.ReadBytesBytes(v, nil)
+				if err != nil {
+					fmt.Println(err)
+					continue
+				}
+				fmt.Println(bs)
 				continue
 			}
-			var x any
-			err = msgpack.Unmarshal(v.(msgp.Raw), &x)
+			buf := bytes.NewBuffer(make([]byte, 0, config.WebsocketReadBufferSize))
+			_, err = msgp.UnmarshalAsJSON(buf, v)
 			if err != nil {
 				fmt.Println(err)
-				fmt.Println("Raw data:", v)
 				continue
 			}
-			fmt.Println(x)
-		case "list":
+			bs, err := io.ReadAll(buf)
+			if err != nil {
+				fmt.Println(err)
+			}
+			fmt.Println("Decoded (JSON):", string(bs))
+		case "tree":
 			path := []string{}
 			if len(words) > 1 {
 				path = strings.Split(words[1], "/")
@@ -103,6 +125,27 @@ Loop:
 				continue
 			}
 			fmt.Print(s)
+		case "list":
+			path := []string{}
+			if len(words) > 1 {
+				path = strings.Split(words[1], "/")
+			}
+			m, err := directory.List(path)
+			if err != nil {
+				fmt.Println(err.Error())
+				continue
+			}
+			line := ""
+			for entry, x := range m {
+				line += entry
+				if x == nil {
+					line += "[r]"
+				} else {
+					line += "[d]"
+				}
+				line += "\n"
+			}
+			fmt.Print(line)
 		case "link":
 			dstPath := []string{}
 			srcPath := []string{}
@@ -112,18 +155,18 @@ Loop:
 			if len(words) > 2 {
 				srcPath = strings.Split(words[2], "/")
 			}
-			dst, err := directory.GetResource(dstPath)
+			dst, err := directory.GetLeaf(dstPath)
 			if err != nil {
 				fmt.Println(err)
 				continue
 			}
-			src, err := directory.GetResource(srcPath)
+			src, err := directory.GetLeaf(srcPath)
 			if err != nil {
 				fmt.Println(err)
 				continue
 			}
-			resp := dst.Link(src)
-			if resp.Err != nil {
+			err = dst.Link(src)
+			if err != nil {
 				fmt.Println(err)
 				continue
 			}
@@ -137,56 +180,44 @@ Loop:
 			if len(words) > 2 {
 				srcPath = strings.Split(words[2], "/")
 			}
-			dst, err := directory.GetResource(dstPath)
+			dst, err := directory.GetLeaf(dstPath)
 			if err != nil {
 				fmt.Println(err)
 				continue
 			}
-			src, err := directory.GetResource(srcPath)
+			src, err := directory.GetLeaf(srcPath)
 			if err != nil {
 				fmt.Println(err)
 				continue
 			}
-			resp := dst.UnLink(src)
-			if resp.Err != nil {
+			err = dst.UnLink(src)
+			if err != nil {
 				fmt.Println(err)
 				continue
 			}
 			fmt.Println("Link deleted", srcPath, "->", dstPath)
 		case "snapshot":
-			var path string
+			snapshotPath := config.SnapshotPath
 			if len(words) > 1 {
-				path = words[1]
-			} else {
-				path = snapshotPath
+				snapshotPath = words[1]
 			}
-			f, err := os.Create(path)
+			err := snapshot.Snapshot(snapshotPath, directory)
 			if err != nil {
-				fmt.Println(err.Error())
+				fmt.Println(err)
 				continue
 			}
-			err = directory.Snapshot([]string{}, f)
-			if err != nil {
-				fmt.Println(err.Error())
-			}
-			f.Close()
+
 		case "restore":
-			var path string
+			snapshotPath := config.SnapshotPath
 			if len(words) > 1 {
-				path = words[1]
-			} else {
-				path = snapshotPath
+				snapshotPath = words[1]
 			}
-			f, err := os.Open(path)
+			err := snapshot.Restore(snapshotPath, directory)
 			if err != nil {
-				fmt.Println(err.Error())
+				fmt.Println(err)
 				continue
 			}
-			err = directory.Restore([]string{}, f)
-			if err != nil {
-				fmt.Println(err.Error())
-			}
-			f.Close()
+
 		case "stop":
 			close(stop)
 			break Loop

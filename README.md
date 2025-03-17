@@ -135,7 +135,7 @@ Updates the resource at the path with the contents of the payload
 
 ##### STREAM
 Streams (subscribes to) the resource at the path and returns the current content of the resource as well as future updates to the resource inside the response payload
-- multiple STREAM request from the same client to the same resource won't create another stream subscription
+- multiple STREAM request from the same client with the same REID *AND* the same PATH won't create another stream subscription
 - responses sent as a result of resource updates contain the same REID as the initial STREAM request
 - requires READ permission
 

@@ -1,36 +1,29 @@
 package tree
 
 import (
-	"encoding/gob"
 	"errors"
-	"io"
+	"fmt"
 	"strings"
 	"sync"
 
 	directoryPkg "github.com/ProjectLighthouseCAU/beacon/directory"
-	"github.com/ProjectLighthouseCAU/beacon/resource"
-	"github.com/tinylib/msgp/msgp"
+	"github.com/ProjectLighthouseCAU/beacon/util"
 )
 
 // ### Directory Type ###
 
-var _ directoryPkg.Directory = (*directory)(nil) // directory type implements Directory interface
+var _ directoryPkg.Directory[any] = (*directory[any])(nil) // directory type implements Directory interface
 
-type directory struct {
-	root               tree
-	lock               sync.RWMutex
-	createResourceFunc func(path []string) resource.Resource
+type directory[T any] struct {
+	root tree
+	lock sync.RWMutex
 }
 
-func NewTree(createResourceFunc func(path []string) resource.Resource) *directory {
-	if createResourceFunc == nil {
-		panic("cannot create directory tree without createResourceFunc (nil)")
-	}
-	return &directory{
-		root: &node{
+func NewTree[T any]() directoryPkg.Directory[T] {
+	return &directory[T]{
+		root: &node[T]{
 			entries: make(map[string]tree),
 		},
-		createResourceFunc: createResourceFunc,
 	}
 }
 
@@ -40,30 +33,33 @@ type tree interface {
 	isTree()
 }
 
-type node struct {
+type node[T any] struct {
 	entries map[string]tree
 }
 
-func (n *node) isTree() {} // node implements tree
+func (n *node[T]) isTree() {} // node implements tree
 
-type leaf struct {
-	resource resource.Resource
+type leaf[T any] struct {
+	// path  []string
+	value T
 }
 
-func (l *leaf) isTree() {} // leaf implements tree
+func (l *leaf[T]) isTree() {} // leaf implements tree
 
 // ### Directory implementation ###
 
+// TODO: refactor and simplify implementation
+
 // Traverses the tree and returns a directory node given a path that points to a directory
-func (d *directory) getDirectory(path []string, createMissingNodes bool) (*node, error) {
+func (d *directory[T]) getDirectory(path []string, createMissingNodes bool) (*node[T], error) {
 	current := d.root
-	for i := 0; i < len(path); i++ {
+	for i := range path {
 		switch x := current.(type) {
-		case *node:
+		case *node[T]:
 			res, ok := x.entries[path[i]]
 			if !ok {
 				if createMissingNodes {
-					res = &node{
+					res = &node[T]{
 						entries: make(map[string]tree),
 					}
 					x.entries[path[i]] = res
@@ -72,13 +68,13 @@ func (d *directory) getDirectory(path []string, createMissingNodes bool) (*node,
 				}
 			}
 			current = res
-		case *leaf:
+		case *leaf[T]:
 			return nil, errors.New(path[i] + " in " + strings.Join(path, "/") + " is not a directory")
 		default:
 			return nil, errors.New("DirectoryTree unknown type: This error should not happen")
 		}
 	}
-	n, ok := current.(*node)
+	n, ok := current.(*node[T])
 	if !ok {
 		return nil, errors.New(strings.Join(path, "/") + " is not a directory")
 	}
@@ -86,7 +82,7 @@ func (d *directory) getDirectory(path []string, createMissingNodes bool) (*node,
 }
 
 // CreateResource creates a resource given a path while creating missing directories
-func (d *directory) CreateResource(path []string) error {
+func (d *directory[T]) CreateLeaf(path []string, value T) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	if len(path) == 0 {
@@ -100,14 +96,14 @@ func (d *directory) CreateResource(path []string) error {
 	if ok {
 		return errors.New(path[len(path)-1] + " in " + strings.Join(path, "/") + " already exists")
 	}
-	n.entries[path[len(path)-1]] = &leaf{
-		resource: d.createResourceFunc(path),
+	n.entries[path[len(path)-1]] = &leaf[T]{
+		value,
 	}
 	return nil
 }
 
 // CreateDirectory creates a directory given a path while creating missing directories
-func (d *directory) CreateDirectory(path []string) error {
+func (d *directory[T]) CreateDirectory(path []string) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	if len(path) == 0 {
@@ -125,7 +121,7 @@ func (d *directory) CreateDirectory(path []string) error {
 }
 
 // DeleteResource deletes a resource or a directory given a path (it also closes deleted resources)
-func (d *directory) Delete(path []string) error {
+func (d *directory[T]) Delete(path []string) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	if len(path) == 0 {
@@ -135,43 +131,39 @@ func (d *directory) Delete(path []string) error {
 	if err != nil {
 		return err
 	}
-	t, ok := n.entries[path[len(path)-1]]
+	_, ok := n.entries[path[len(path)-1]]
 	if !ok {
 		return errors.New(path[len(path)-1] + " not found in " + strings.Join(path, "/"))
 	}
-	// close all contained resources and delete the entry
-	forEach(t, func(r resource.Resource) (bool, error) {
-		r.Close()
-		return true, nil
-	})
 	delete(n.entries, path[len(path)-1])
 	return nil
 }
 
 // GetResource returns a resource from the directory given a path
-func (d *directory) GetResource(path []string) (resource.Resource, error) {
+func (d *directory[T]) GetLeaf(path []string) (T, error) {
+	var emptyValue T
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 	if len(path) == 0 {
-		return nil, errors.New("root directory is not a resource")
+		return emptyValue, errors.New("root directory is not a resource")
 	}
 	n, err := d.getDirectory(path[0:len(path)-1], false)
 	if err != nil {
-		return nil, err
+		return emptyValue, err
 	}
 	res, ok := n.entries[path[len(path)-1]]
 	if !ok {
-		return nil, errors.New(path[len(path)-1] + " not found in " + strings.Join(path, "/"))
+		return emptyValue, errors.New(path[len(path)-1] + " not found in " + strings.Join(path, "/"))
 	}
-	l, ok := res.(*leaf)
+	l, ok := res.(*leaf[T])
 	if !ok {
-		return nil, errors.New(path[len(path)-1] + " is not a resource")
+		return emptyValue, errors.New(path[len(path)-1] + " is not a resource")
 	}
-	return l.resource, nil
+	return l.value, nil
 }
 
 // String outputs the directory tree in a nice format starting from path (path=[] for full tree)
-func (d *directory) String(path []string) (string, error) {
+func (d *directory[T]) String(path []string) (string, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 	// result := "root\n"
@@ -190,12 +182,12 @@ func (d *directory) String(path []string) (string, error) {
 }
 
 // Recursively prints the directory tree
-func (n *node) string(prefixAtLayer []bool) string {
+func (n *node[T]) string(prefixAtLayer []bool) string {
 	res := ""
 	lastIdx := len(n.entries) - 1
 	idx := 0
 	for k, v := range n.entries {
-		for i := 0; i < len(prefixAtLayer); i++ {
+		for i := range prefixAtLayer {
 			if prefixAtLayer[i] {
 				res += "│    "
 			} else {
@@ -208,9 +200,9 @@ func (n *node) string(prefixAtLayer []bool) string {
 			res += "├── "
 		}
 		switch x := v.(type) {
-		case *leaf:
+		case *leaf[T]:
 			res += k + "[r]\n"
-		case *node:
+		case *node[T]:
 			res += k + "[d]\n"
 			if idx == lastIdx {
 				res += x.string(append(prefixAtLayer, false))
@@ -226,24 +218,33 @@ func (n *node) string(prefixAtLayer []bool) string {
 // ForEach executes a function on every resource in the directory.
 // When the provided function returns false, further execution is stopped.
 // When the provided function returns an error, the error is returned and further execution is also stopped.
-func (d *directory) ForEach(f func(resource.Resource) (bool, error)) error {
+func (d *directory[T]) ForEach(path []string, f func(path []string, value T) (bool, error)) error {
+	l, err := d.GetLeaf(path)
+	if err == nil {
+		f(path, l)
+		return nil
+	}
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	return forEach(d.root, f)
+	n, err := d.getDirectory(path, false)
+	if err != nil {
+		return err
+	}
+	return forEach(n, path, f)
 }
 
-func forEach(t tree, f func(resource.Resource) (bool, error)) (err error) {
+func forEach[T any](t tree, path []string, f func(path []string, value T) (bool, error)) (err error) {
 	switch x := t.(type) {
-	case *node:
-		for _, subt := range x.entries {
-			err = forEach(subt, f)
+	case *node[T]:
+		for entryName, subt := range x.entries {
+			err = forEach(subt, util.ImmutableAppend(path, entryName), f)
 			if err != nil {
 				return
 			}
 		}
-	case *leaf:
+	case *leaf[T]:
 		var cont bool
-		cont, err = f(x.resource)
+		cont, err = f(path, x.value)
 		if err != nil || !cont {
 			return
 		}
@@ -251,9 +252,28 @@ func forEach(t tree, f func(resource.Resource) (bool, error)) (err error) {
 	return
 }
 
+func (d *directory[T]) List(path []string) (map[string]any, error) {
+	d.lock.RLock()
+	defer d.lock.RUnlock()
+	n, err := d.getDirectory(path, false)
+	if err != nil {
+		return nil, err
+	}
+	lst := make(map[string]any)
+	for name, t := range n.entries {
+		switch t.(type) {
+		case *node[T]:
+			lst[name] = make(map[string]any) // empty map indicates directory
+		case *leaf[T]:
+			lst[name] = nil // nil indicates leaf
+		}
+	}
+	return lst, nil
+}
+
 // List lists the contents of a directory by returning a recursively nested map of subdirectories.
 // A resource is indicated by a nil value.
-func (d *directory) List(path []string) (map[string]any, error) {
+func (d *directory[T]) ListRecursive(path []string) (map[string]any, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 
@@ -261,27 +281,22 @@ func (d *directory) List(path []string) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	m, err := list(n, false)
+	m, err := list(n)
 	if err != nil {
 		return nil, err
 	}
 	return m, nil
 }
 
-func list(n *node, includeContent bool) (map[string]any, error) {
+func list[T any](n *node[T]) (map[string]any, error) {
 	result := make(map[string]any)
 	for k, v := range n.entries {
 		switch x := v.(type) {
-		case *leaf:
-			if includeContent {
-				content, _ := x.resource.Get()
-				result[k] = ([]byte)(content.(msgp.Raw))
-			} else {
-				result[k] = nil // nil to indicate a resource (empty map is not distinguishable from empty directory)
-			}
-		case *node:
+		case *leaf[T]:
+			result[k] = nil // nil to indicate a resource (empty map is not distinguishable from empty directory)
+		case *node[T]:
 			var err error
-			result[k], err = list(x, includeContent) // recursive map to indicate a directory
+			result[k], err = list(x) // recursive map to indicate a directory
 			if err != nil {
 				return nil, err
 			}
@@ -290,80 +305,32 @@ func list(n *node, includeContent bool) (map[string]any, error) {
 	return result, nil
 }
 
-// Snapshotting might look unnecessarily complicated but there is a good reason for the decisions:
-// Marshaling the complete directory and resource contents with MsgPack makes it impossible to disinguish
-// between a directory and a map stored inside of a resource.
-// We therefore use MsgPack to marshal the resource contents (in order to keep full MsgPack compatibility)
-// and then gob (Go's binary encoding) to marshal the directory tree.
-// Restoring from a snapshot does the same thing in reverse: First decode with gob and then decode the resources with msgpack.
-// Note: shamaton/msgpack library decodes map[string]any as map[any]any -> switched to vmihailenco/msgpack
-
-// Snapshot takes a snapshot of a directory (including the resource contents), serializes and writes it to the io.Writer.
-func (d *directory) Snapshot(path []string, writer io.Writer) error {
-	d.lock.RLock()
-	defer d.lock.RUnlock()
-	n, err := d.getDirectory(path, false)
-	if err != nil {
-		return err
-	}
-	gob.Register(map[string]any{})
-	enc := gob.NewEncoder(writer)
-	m, err := list(n, true)
-	if err != nil {
-		return err
-	}
-	return enc.Encode(m)
-}
-
-// Restore restores a directory from a snapshot provided by the io.Reader.
-// It deserializes the snapshot and recreates all directories and resources
-// and fills the resources with their values from the snapshot.
-func (d *directory) Restore(path []string, reader io.Reader) error {
+// Changes the root directory of this directory to the one of the given directory.
+// Given directory must not be the same as this directory.
+// Given directory must be of same implementation type as this directory.
+func (d *directory[T]) ChRoot(dir directoryPkg.Directory[T]) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
-	var m map[string]any
-	gob.Register(map[string]any{})
-	dec := gob.NewDecoder(reader)
-	err := dec.Decode(&m)
-	if err != nil {
-		return err
+	newRoot := make(map[string]tree)
+	for key, valueIntf := range dir.GetRoot() {
+		value, ok := valueIntf.(tree)
+		if !ok {
+			return fmt.Errorf("[ChRoot] Root directory entry has wrong type, cannot convert from %T to tree", valueIntf)
+		}
+		newRoot[key] = value
 	}
-	return restore(d, path, m)
+	d.root.(*node[T]).entries = newRoot
+	return nil
 }
 
-func restore(d *directory, path []string, m map[string]any) error {
-	for k, v := range m {
-		switch x := v.(type) {
-		case map[string]any:
-			p := append(path, k)
-			_, err := d.getDirectory(p, true)
-			if err != nil {
-				return err
-			}
-			err = restore(d, p, x)
-			if err != nil {
-				return err
-			}
-		default:
-			n, err := d.getDirectory(path, true)
-			if err != nil {
-				return err
-			}
-			_, ok := n.entries[k]
-			if ok {
-				return errors.New(k + " in " + strings.Join(path, "/") + " already exists")
-			}
-			r := d.createResourceFunc(append(path, k))
-			content := (msgp.Raw)(v.([]byte))
-			resp := r.Put(content)
-			if resp.Err != nil {
-				return err
-			}
-			n.entries[k] = &leaf{
-				resource: r,
-			}
-		}
+// Returns the root directory of this directory
+func (d *directory[T]) GetRoot() map[string]any {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	root := make(map[string]any)
+	for k, v := range d.root.(*node[T]).entries {
+		root[k] = v
 	}
-	return nil
+	return root
 }

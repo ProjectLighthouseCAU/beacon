@@ -5,12 +5,13 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/ProjectLighthouseCAU/beacon/resource"
 	"github.com/ProjectLighthouseCAU/beacon/types"
 )
 
 func (handler *Handler) stop(client *types.Client, request *types.Request) *types.Response {
 	response := types.NewResponse().Reid(request.REID)
-	resource, err := handler.directory.GetResource(request.PATH)
+	resrc, err := handler.directory.GetLeaf(request.PATH)
 	if err != nil { // resource not found
 		return response.Warning(err.Error()).Rnum(http.StatusNotFound).Build()
 	}
@@ -19,10 +20,10 @@ func (handler *Handler) stop(client *types.Client, request *types.Request) *type
 		warning := fmt.Sprintf("No open stream for resource %s with REID %v", strings.Join(request.PATH, "/"), request.REID)
 		return response.Rnum(http.StatusNotFound).Warning(warning).Build()
 	}
-	resp := resource.StopStream(stream)
-	if resp.Err != nil {
-		response.Warning(resp.Err.Error())
+	err = resrc.StopStream(stream)
+	if err != nil {
+		response.Warning(err.Error())
 	}
 	client.RemoveStream(request.REID, request.PATH)
-	return response.Rnum(resp.Code).Build()
+	return response.Rnum(resource.ErrorToStatusCode(err)).Build()
 }

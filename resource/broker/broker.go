@@ -1,7 +1,6 @@
 package broker
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -10,7 +9,6 @@ import (
 
 	"github.com/ProjectLighthouseCAU/beacon/config"
 	"github.com/ProjectLighthouseCAU/beacon/resource"
-	"github.com/tinylib/msgp/msgp"
 )
 
 type controlMsgType uint16
@@ -23,59 +21,59 @@ const (
 	UNLINK
 )
 
-var (
-	inputChanSize   = config.GetInt("RESOURCE_PUT_CHANNEL_SIZE", 1000)
-	streamChanSize  = config.GetInt("RESOURCE_STREAM_CHANNEL_SIZE", 1000)
-	controlChanSize = config.GetInt("RESOURCE_CONTROL_CHANNEL_SIZE", 100)
-)
-
-type broker struct {
+type broker[T any] struct {
 	path []string // resource path
 
-	input   chan inputMsg        // input channel (only for PUT)
-	control chan controlMsg      // control channel (for everything else than PUT)
-	streams map[chan any]bool    // keeps track of active subscriber streams (value indicates whether the channel is infinite->blocking-send or finite->non-blocking-send)
-	links   map[*broker]chan any // keeps track of active links from other resources
+	input   chan inputMsg[T]      // input channel (only for PUT)
+	control chan controlMsg[T]    // control channel (for everything else than PUT)
+	streams map[chan T]bool       // keeps track of active subscriber streams (value indicates whether the channel is infinite->blocking-send or finite->non-blocking-send)
+	links   map[*broker[T]]chan T // keeps track of active links from other resources
 
-	value     any // latest input value
+	value     T // latest input value
 	valueLock sync.RWMutex
 }
 
-var _ resource.Resource = (*broker)(nil) // ensure resource implements Resource
+var _ resource.Resource[resource.Content] = (*broker[resource.Content])(nil) // ensure resource implements Resource
+
+// Response struct for detailed response to the server
+type response struct {
+	Code int
+	Err  error
+}
 
 // Message sent through input channel
-type inputMsg struct { // PUT
-	Content      any
-	ResponseChan chan resource.Response
+type inputMsg[T any] struct { // PUT
+	Content      T
+	ResponseChan chan response
 }
 
 // Message sent through control channel
-type controlMsg struct {
+type controlMsg[T any] struct {
 	Type         controlMsgType // enum - see const
 	Content      any
-	ResponseChan chan resource.Response
+	ResponseChan chan response
 }
 
 // Content for STREAM controlMsg
-type streamContent struct {
-	channel  chan any
+type streamContent[T any] struct {
+	channel  chan T
 	infinite bool
 }
 
 // Create creates and returns a new resource and starts a goroutine which acts as a message broker
 // between the put channel and the subscribed stream channels as well the value of the resource.
-func Create(path []string) resource.Resource {
+func Create[T any](path []string, initialValue T) resource.Resource[T] {
 	// create resource and initialize channels, maps and mutex
-	r := &broker{
+	r := &broker[T]{
 		path: path,
 
-		input:   make(chan inputMsg, inputChanSize),
-		control: make(chan controlMsg, controlChanSize),
+		input:   make(chan inputMsg[T], config.ResourceInputChannelSize),
+		control: make(chan controlMsg[T], config.ResourceControlChannelSize),
 
-		streams: make(map[chan any]bool),
-		links:   make(map[*broker]chan any),
+		streams: make(map[chan T]bool),
+		links:   make(map[*broker[T]]chan T),
 
-		value:     msgp.Raw{},
+		value:     initialValue,
 		valueLock: sync.RWMutex{},
 	}
 	go r.broker()
@@ -84,7 +82,7 @@ func Create(path []string) resource.Resource {
 }
 
 //lint:ignore U1000 unused
-func (r *broker) monitor() {
+func (r *broker[T]) monitor() {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 	for range ticker.C {
@@ -99,7 +97,7 @@ func (r *broker) monitor() {
 	}
 }
 
-func nonBlockingSend(c chan any, v any) bool {
+func nonBlockingSend[T any](c chan T, v T) bool {
 	select {
 	case c <- v:
 		return true
@@ -108,7 +106,7 @@ func nonBlockingSend(c chan any, v any) bool {
 	}
 }
 
-func (r *broker) broker() {
+func (r *broker[T]) broker() {
 	log.Println("Resource " + strings.Join(r.path, "/") + " started")
 	defer func() {
 		if r := recover(); r != nil {
@@ -124,17 +122,23 @@ func (r *broker) broker() {
 			r.value = payload
 			r.valueLock.Unlock()
 			// send new value to all subscribed streams
+			anyStreamSkipped := false
 			for stream, infinite := range r.streams {
 				if infinite {
 					stream <- payload // blocking send on infinite channel won't block
 				} else {
 					sent := nonBlockingSend(stream, payload) // non-blocking send for finite channels
 					if !sent {
+						anyStreamSkipped = true
 						log.Println("[Warning] A stream channel is full and was skipped by the broker") // TODO: add prometheus metric "dropped_stream_packets"
 					}
 				}
 			}
-			inputMsg.ResponseChan <- resource.Response{Code: 200, Err: nil}
+			if anyStreamSkipped {
+				inputMsg.ResponseChan <- response{Code: 200, Err: resource.ErrWarnStreamSkipped}
+			} else {
+				inputMsg.ResponseChan <- response{Code: 200, Err: nil}
+			}
 
 		case controlMsg := <-r.control: // control message (CLOSE, STREAM, STOP, LINK, UNLINK)
 			switch controlMsg.Type {
@@ -148,129 +152,135 @@ func (r *broker) broker() {
 					other.StopStream(stream)
 					delete(r.links, other)
 				}
-				controlMsg.ResponseChan <- resource.Response{Code: 200, Err: nil}
+				controlMsg.ResponseChan <- response{Code: 200, Err: nil}
 				return
 
 			case STREAM:
-				stream := controlMsg.Content.(streamContent)
+				stream := controlMsg.Content.(streamContent[T])
 				r.streams[stream.channel] = stream.infinite
-				controlMsg.ResponseChan <- resource.Response{Code: 200, Err: nil}
+				controlMsg.ResponseChan <- response{Code: 200, Err: nil}
 
 			case STOP:
-				stream := controlMsg.Content.(chan any)
+				stream := controlMsg.Content.(chan T)
 				_, ok := r.streams[stream]
 				if !ok {
-					controlMsg.ResponseChan <- resource.Response{Code: 404, Err: errors.New("the stream does not exist and therefore cannot be closed")}
+					controlMsg.ResponseChan <- response{Code: 404, Err: resource.ErrStreamNotFound}
 					break
 				}
 				close(stream)
 				delete(r.streams, stream)
-				controlMsg.ResponseChan <- resource.Response{Code: 200, Err: nil}
+				controlMsg.ResponseChan <- response{Code: 200, Err: nil}
 
 			case LINK:
-				otherResource := controlMsg.Content.(*broker)
+				otherResource := controlMsg.Content.(*broker[T])
 				if _, ok := r.links[otherResource]; ok {
-					controlMsg.ResponseChan <- resource.Response{Code: 200, Err: errors.New("the link already exists")}
+					controlMsg.ResponseChan <- response{Code: 200, Err: resource.ErrWarnLinkExists}
 					break
 				}
 				if r.isLinkedBy(otherResource) {
-					controlMsg.ResponseChan <- resource.Response{Code: 508, Err: errors.New("the link causes a loop in the linking graph which is not allowed")}
+					controlMsg.ResponseChan <- response{Code: 508, Err: resource.ErrLinkLoop}
 					break
 				}
-				stream, _ := otherResource.Stream()
+				stream := otherResource.Stream()
 				go func() { // forward data from other resources stream to this resources input
 					for payload := range stream {
 						r.Put(payload)
 					}
 				}()
 				r.links[otherResource] = stream
-				controlMsg.ResponseChan <- resource.Response{Code: 200, Err: nil}
+				controlMsg.ResponseChan <- response{Code: 200, Err: nil}
 
 			case UNLINK:
-				otherResource := controlMsg.Content.(*broker)
+				otherResource := controlMsg.Content.(*broker[T])
 				stream, ok := r.links[otherResource]
 				if !ok {
-					controlMsg.ResponseChan <- resource.Response{Code: 404, Err: errors.New("the link does not exist and therefore cannot be removed")}
+					controlMsg.ResponseChan <- response{Code: 404, Err: resource.ErrLinkNotFound}
 					break
 				}
 				otherResource.StopStream(stream)
 				delete(r.links, otherResource)
-				controlMsg.ResponseChan <- resource.Response{Code: 200, Err: nil}
+				controlMsg.ResponseChan <- response{Code: 200, Err: nil}
 			}
 		}
 	}
 }
 
 // Close this resources broker and all active streams. A Get request is still possible after the resource was closed.
-func (r *broker) Close() resource.Response {
-	respChan := make(chan resource.Response)
+func (r *broker[T]) Close() {
+	respChan := make(chan response)
 	defer close(respChan)
-	r.control <- controlMsg{Type: CLOSE, Content: nil, ResponseChan: respChan}
-	return <-respChan
+	r.control <- controlMsg[T]{Type: CLOSE, Content: nil, ResponseChan: respChan}
+	<-respChan
 }
 
 // Stream subscribes to this resource.
 // This returns a new channel where all updates to this resource will be sent to.
-func (r *broker) Stream() (chan any, resource.Response) {
-	stream := make(chan any, streamChanSize)
-	respChan := make(chan resource.Response)
+func (r *broker[T]) Stream() chan T {
+	stream := make(chan T, config.ResourceStreamChannelSize)
+	respChan := make(chan response)
 	defer close(respChan)
-	r.control <- controlMsg{Type: STREAM, Content: streamContent{stream, false}, ResponseChan: respChan}
-	return stream, <-respChan
+	r.control <- controlMsg[T]{Type: STREAM, Content: streamContent[T]{stream, false}, ResponseChan: respChan}
+	<-respChan
+	return stream
 }
 
-// TODO: change interface sucht that this method can be used
-func (r *broker) StreamWithGuaranteedDelivery() (chan any, resource.Response) {
-	streamIn, streamOut := makeInfinite()
-	respChan := make(chan resource.Response)
+// TODO: change interface such that this method can be used
+func (r *broker[T]) StreamWithGuaranteedDelivery() chan T {
+	streamIn, streamOut := makeInfinite[T]()
+	respChan := make(chan response)
 	defer close(respChan)
-	r.control <- controlMsg{Type: STREAM, Content: streamContent{streamIn, true}, ResponseChan: respChan}
-	return streamOut, <-respChan
+	r.control <- controlMsg[T]{Type: STREAM, Content: streamContent[T]{streamIn, true}, ResponseChan: respChan}
+	<-respChan
+	return streamOut
 }
 
 // StopStream unsubscribes from this resource.
 // The channel created by Stream() needs to be passed
-func (r *broker) StopStream(stream chan any) resource.Response {
-	respChan := make(chan resource.Response)
+func (r *broker[T]) StopStream(stream chan T) error {
+	respChan := make(chan response)
 	defer close(respChan)
-	r.control <- controlMsg{Type: STOP, Content: stream, ResponseChan: respChan}
-	return <-respChan
+	r.control <- controlMsg[T]{Type: STOP, Content: stream, ResponseChan: respChan}
+	resp := <-respChan
+	return resp.Err
 }
 
 // Put updates the value of this resource.
-func (r *broker) Put(payload any) resource.Response {
-	respChan := make(chan resource.Response)
+func (r *broker[T]) Put(payload T) error {
+	respChan := make(chan response)
 	defer close(respChan)
-	r.input <- inputMsg{Content: payload, ResponseChan: respChan}
-	return <-respChan
+	r.input <- inputMsg[T]{Content: payload, ResponseChan: respChan}
+	resp := <-respChan
+	return resp.Err
 }
 
 // Get returns the current (latest written) value of this resource
-func (r *broker) Get() (any, resource.Response) {
+func (r *broker[T]) Get() T {
 	r.valueLock.RLock()
 	defer r.valueLock.RUnlock()
-	return r.value, resource.Response{Code: 200, Err: nil}
+	return r.value
 }
 
 // Link links one resources input to another resources output.
 // The link fails if it causes a loop in the linking graph.
-func (r *broker) Link(other resource.Resource) resource.Response {
-	respChan := make(chan resource.Response)
+func (r *broker[T]) Link(other resource.Resource[T]) error {
+	respChan := make(chan response)
 	defer close(respChan)
-	r.control <- controlMsg{Type: LINK, Content: other, ResponseChan: respChan}
-	return <-respChan
+	r.control <- controlMsg[T]{Type: LINK, Content: other, ResponseChan: respChan}
+	resp := <-respChan
+	return resp.Err
 }
 
 // UnLink removes the link created by Link
-func (r *broker) UnLink(other resource.Resource) resource.Response {
-	respChan := make(chan resource.Response)
+func (r *broker[T]) UnLink(other resource.Resource[T]) error {
+	respChan := make(chan response)
 	defer close(respChan)
-	r.control <- controlMsg{Type: UNLINK, Content: other, ResponseChan: respChan}
-	return <-respChan
+	r.control <- controlMsg[T]{Type: UNLINK, Content: other, ResponseChan: respChan}
+	resp := <-respChan
+	return resp.Err
 }
 
 // checks whether a given resource links to this resource (using depth first search)
-func (r *broker) isLinkedBy(other *broker) bool {
+func (r *broker[T]) isLinkedBy(other *broker[T]) bool {
 	// if the resources are the same, they are considered linked
 	if other == r {
 		return true
@@ -289,20 +299,21 @@ func (r *broker) isLinkedBy(other *broker) bool {
 }
 
 // Makes an infinite channel by using a slice and a goroutine
-func makeInfinite() (in chan any, out chan any) {
-	in = make(chan any, streamChanSize)
-	out = make(chan any, streamChanSize)
+func makeInfinite[T any]() (in chan T, out chan T) {
+	in = make(chan T, config.ResourceStreamChannelSize)
+	out = make(chan T, config.ResourceStreamChannelSize)
 	go func() {
-		var inQ []any
-		outC := func() chan any {
+		var inQ []T
+		outC := func() chan T {
 			if len(inQ) == 0 {
 				return nil
 			}
 			return out
 		}
-		curVal := func() any {
+		curVal := func() T {
 			if len(inQ) == 0 {
-				return nil
+				var zeroValue T
+				return zeroValue
 			}
 			return inQ[0]
 		}

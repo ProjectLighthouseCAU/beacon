@@ -7,6 +7,58 @@ import (
 	"time"
 )
 
+var (
+	// websocket
+	WebsocketHost            string = GetString("WEBSOCKET_HOST", "127.0.0.1")
+	WebsocketPort            int    = GetInt("WEBSOCKET_PORT", 3000)
+	WebsocketReadBufferSize  int    = GetInt("WEBSOCKET_READ_BUFFER_SIZE", 0)
+	WebsocketWriteBufferSize int    = GetInt("WEBSOCKET_WRITE_BUFFER_SIZE", 0)
+	WebsocketReadLimit       int    = GetInt("WEBSOCKET_READ_LIMIT", 2048)
+
+	// snapshot
+	SnapshotPath     string        = GetString("SNAPSHOT_PATH", "./snapshot.beacon")
+	SnapshotInterval time.Duration = GetDuration("SNAPSHOT_INTERVAL", 1*time.Second)
+
+	// auth
+	Auth string = GetString("AUTH", "allow_none") // valid values: hardcoded, legacy, heimdall, allow_all, allow_none
+	// hardcoded
+	UsersConfigJson  string = GetString("USERS_CONFIG_JSON", "{}")
+	AdminsConfigJson string = GetString("ADMINS_CONFIG_JSON", "{}")
+	// heimdall
+	HeimdallAdminRolename   string = GetString("HEIMDALL_ADMIN_ROLENAME", "admin")
+	HeimdallDeployRolename  string = GetString("HEIMDALL_DEPLOY_ROLENAME", "deploy")
+	HeimdallAuthenticateURL string = GetString("HEIMDALL_AUTHENTICATE_URL", "https://lighthouse.uni-kiel.de/api/internal/authenticate")
+	HeimdallUsernamesURL    string = GetString("HEIMDALL_USERNAMES_URL", "https://lighthouse.uni-kiel.de/api/internal/users")
+	BeaconUsername          string = GetString("BEACON_USERNAME", "")
+	BeaconToken             string = GetString("BEACON_TOKEN", "")
+
+	// legacy
+	LegacyDatabaseHost     string        = GetString("DB_HOST", "localhost")
+	LegacyDatabasePort     int           = GetInt("DB_PORT", 5432)
+	LegacyDatabaseUser     string        = GetString("DB_USER", "postgres")
+	LegacyDatabasePassword string        = GetString("DB_PASSWORD", "postgres")
+	LegacyDatabaseName     string        = GetString("DB_NAME", "LHP")
+	DatabaseQueryInterval  time.Duration = GetDuration("DB_QUERY_PERIOD", 1*time.Second)
+	// jwt (unfinished test)
+	JWTPrivateKey []byte = []byte(GetString("JWT_PRIVATE_KEY", "")) // generates a new random key if empty
+
+	// logging
+	VerboseLogging bool = GetBool("VERBOSE_LOGGING", false)
+
+	// resource
+	ResourceImplementation string = GetString("RESOURCE_IMPL", "brokerless") // valid values: broker, brokerless
+	// stream
+	ResourceStreamChannelSize int = GetInt("RESOURCE_STREAM_CHANNEL_SIZE", 10)
+	// broker-specific
+	ResourceInputChannelSize   int = GetInt("RESOURCE_PUT_CHANNEL_SIZE", 10)
+	ResourceControlChannelSize int = GetInt("RESOURCE_CONTROL_CHANNEL_SIZE", 10)
+
+	// webinterface (very hacked together)
+	WebinterfaceHost  = GetString("WEBINTERFACE_HOST", "127.0.0.1")
+	WebinterfaceRoute = GetString("WEBINTERFACE_ROUTE", "/")
+	WebinterfacePort  = GetInt("WEBINTERFACE_PORT", 3001)
+)
+
 func GetString(key string, defaultValue string) string {
 	if value, exists := os.LookupEnv(key); exists {
 		return value
