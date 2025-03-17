@@ -37,7 +37,7 @@ RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build -a -installsuffix cgo -o beacon .
 
 ### RUNTIME IMAGE ###
 
-FROM scratch as runtime-stage
+FROM scratch AS runtime-stage
 # copy the user files and switch to app user
 COPY --from=compile-stage /etc/passwd /etc/passwd
 COPY --from=compile-stage /etc/group /etc/group
