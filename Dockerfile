@@ -49,4 +49,5 @@ COPY --chown=app:app --from=compile-stage /app/static /static
 # copy the data folder with the correct permissions for the volume mount
 COPY --chown=app:app --from=compile-stage /app/data /data
 VOLUME /data
+COPY --chown=app:app --from=compile-stage /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 ENTRYPOINT ["/beacon"]
