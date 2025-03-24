@@ -250,18 +250,27 @@ func (a *HeimdallAuth) readUsersUpdateMessage(reader *bufio.Reader) (*UsersUpdat
 func (a *HeimdallAuth) IsAuthorized(client *types.Client, request *types.Request) (bool, int) {
 	username, ok := request.AUTH["USER"]
 	if !ok {
+		log.Printf("[HeimdallAuth] Unauthorized: Missing username\n")
 		return false, http.StatusUnauthorized
 	}
 	token, ok := request.AUTH["TOKEN"]
 	if !ok {
+		log.Printf("[HeimdallAuth] Unauthorized: No token provided for %s\n", username)
 		return false, http.StatusUnauthorized
 	}
 	entry, err := a.getAuthEntry(client, username, token)
 	if err != nil {
+		log.Printf("[HeimdallAuth] Unauthorized: Could not get auth entry for %s: %+v\n", username, err)
 		return false, http.StatusUnauthorized
 	}
 
-	if token != entry.Token || (!entry.Permanent && entry.ExpiresAt.Before(time.Now())) {
+	if token != entry.Token {
+		log.Printf("[HeimdallAuth] Unauthorized: Invalid token for %s\n", username)
+		return false, http.StatusUnauthorized
+	}
+
+	if !entry.Permanent && entry.ExpiresAt.Before(time.Now()) {
+		log.Printf("[HeimdallAuth] Unauthorized: Expired token for %s\n", username)
 		return false, http.StatusUnauthorized
 	}
 
