@@ -80,11 +80,14 @@ func (a *HeimdallAuth) directoryUpdater(dir directory.Directory[resource.Resourc
 	if err != nil {
 		return err
 	}
+
 	req.Header.Add("Authorization", config.BeaconToken)
 	resp, err := a.client.Do(req)
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
 		return errors.New(resp.Status)
 	}
@@ -119,7 +122,6 @@ func (a *HeimdallAuth) getAuthEntry(client *types.Client, username, token string
 		return entry, nil
 	}
 	// cache miss
-
 	// query the auth endpoint
 	req, err := http.NewRequest("GET", config.HeimdallAuthenticateURL+"/"+username, nil)
 	if err != nil {
@@ -130,6 +132,13 @@ func (a *HeimdallAuth) getAuthEntry(client *types.Client, username, token string
 	if err != nil {
 		return nil, err
 	}
+	// prevent file descriptor leak by closing the response body if not needed anymore
+	closeResponseBody := true
+	defer func() {
+		if closeResponseBody {
+			resp.Body.Close()
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return nil, errors.New(resp.Status)
 	}
@@ -159,8 +168,9 @@ func (a *HeimdallAuth) getAuthEntry(client *types.Client, username, token string
 		client.RemoveAuthCacheUpdaterCancelFunc(username)
 		cancel()
 	}
+	// prevent the deferred function to close the request body since we still need it in the goroutine
+	closeResponseBody = false
 	go a.cacheEntryUpdater(ctx, onStop, reader, username, client)
-
 	return entry, nil
 }
 
