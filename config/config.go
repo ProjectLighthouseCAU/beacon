@@ -41,9 +41,6 @@ var (
 	LegacyDatabaseName     string        = GetString("DB_NAME", "LHP")
 	DatabaseQueryInterval  time.Duration = GetDuration("DB_QUERY_PERIOD", 1*time.Second)
 
-	// TLS certificates (for https client)
-	CaCertificatesFilePath string = GetString("CA_CERTIFICATES_FILE_PATH", "/etc/ssl/certs/ca-certificates.crt")
-
 	// logging
 	VerboseLogging bool = GetBool("VERBOSE_LOGGING", false)
 

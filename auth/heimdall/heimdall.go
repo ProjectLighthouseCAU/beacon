@@ -3,15 +3,12 @@ package heimdall
 import (
 	"bufio"
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"io"
 	"log"
 	"net"
 	"net/http"
-	"os"
 	"slices"
 	"time"
 
@@ -47,21 +44,8 @@ var (
 )
 
 func New(dir directory.Directory[resource.Resource[resource.Content]]) *HeimdallAuth {
-	pool := x509.NewCertPool()
-	certFile, err := os.ReadFile(config.CaCertificatesFilePath)
-	if err != nil {
-		panic("Could not open " + config.CaCertificatesFilePath + ": " + err.Error())
-	}
-	ok := pool.AppendCertsFromPEM(certFile)
-	if !ok {
-		panic("Certificates were not parsed correctly from: " + config.CaCertificatesFilePath)
-	}
 	auth := HeimdallAuth{
-		client: &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{RootCAs: pool},
-			},
-		},
+		client: http.DefaultClient,
 	}
 	go func() {
 		for {
