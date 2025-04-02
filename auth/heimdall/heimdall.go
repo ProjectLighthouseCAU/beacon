@@ -9,6 +9,7 @@ import (
 	"errors"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"slices"
@@ -82,6 +83,10 @@ func (a *HeimdallAuth) directoryUpdater(dir directory.Directory[resource.Resourc
 	}
 
 	req.Header.Add("Authorization", config.BeaconToken)
+	ips, err := net.LookupIP(config.ContainerName)
+	if err == nil && len(ips) > 0 {
+		req.Header.Add("X-Real-Ip", ips[0].String())
+	}
 	resp, err := a.client.Do(req)
 	if err != nil {
 		return err
@@ -128,6 +133,10 @@ func (a *HeimdallAuth) getAuthEntry(client *types.Client, username, token string
 		return nil, err
 	}
 	req.Header.Add("Authorization", token)
+	ips, err := net.LookupIP(config.ContainerName)
+	if err == nil && len(ips) > 0 {
+		req.Header.Add("X-Real-Ip", ips[0].String())
+	}
 	resp, err := a.client.Do(req)
 	if err != nil {
 		return nil, err

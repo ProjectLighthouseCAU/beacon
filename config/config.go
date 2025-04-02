@@ -31,6 +31,7 @@ var (
 	HeimdallUsernamesURL    string = GetString("HEIMDALL_USERNAMES_URL", "https://lighthouse.uni-kiel.de/api/internal/users")
 	BeaconUsername          string = GetString("BEACON_USERNAME", "")
 	BeaconToken             string = GetString("BEACON_TOKEN", "")
+	ContainerName           string = GetString("CONTAINER_NAME", "beacon")
 
 	// legacy
 	LegacyDatabaseHost     string        = GetString("DB_HOST", "localhost")
