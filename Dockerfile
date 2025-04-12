@@ -22,7 +22,7 @@ WORKDIR /app
 RUN mkdir data
 # install dependencies before copying everything else to allow for caching
 COPY go.mod go.sum ./
-RUN go get -d ./...
+RUN go get -v ./...
 # copy the code into the build image
 COPY . .
 
