@@ -6,7 +6,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/lib/pq v1.10.9
-	github.com/tinylib/msgp v1.2.5
+	github.com/tinylib/msgp v1.6.1
 )
 
-require github.com/philhofer/fwd v1.1.3-0.20240916144458-20a13a1f6b7c // indirect
+require github.com/philhofer/fwd v1.2.0 // indirect
